@@ -6,6 +6,7 @@ from typing import Optional
 
 from config import (
     MODBUS_IDLE_DISCONNECT_SECONDS,
+    MODBUS_INITIAL_CONNECT_IDLE_SECONDS,
     MODBUS_LISTEN_HOST,
     MODBUS_LISTEN_PORT,
     MODBUS_TCP_KEEPALIVE_COUNT,
@@ -323,6 +324,7 @@ def tcp_server_loop() -> None:
 
                 log_net(f"Modbus client connected from {addr[0]}:{addr[1]} mode={active_mode}")
                 buffer = bytearray()
+                got_first_payload = False
 
                 while not stop_event.is_set():
                     try:
@@ -336,6 +338,7 @@ def tcp_server_loop() -> None:
                             raise ConnectionError("client disconnected")
 
                         last_payload_at = time.monotonic()
+                        got_first_payload = True
 
                         log_tcp_raw(f"TCP RX {len(data)} bytes {data.hex(' ')}")
                         buffer.extend(data)
@@ -374,15 +377,18 @@ def tcp_server_loop() -> None:
                                 log_tcp_raw(f"TCP TX {len(response)} bytes {response.hex(' ')}")
 
                     except socket.timeout:
-                        if (
-                            MODBUS_IDLE_DISCONNECT_SECONDS > 0
-                            and time.monotonic() - last_payload_at >= MODBUS_IDLE_DISCONNECT_SECONDS
-                        ):
+                        elapsed = time.monotonic() - last_payload_at
+                        if got_first_payload:
+                            idle_limit = MODBUS_IDLE_DISCONNECT_SECONDS
+                            label = "established session idle"
+                        else:
+                            idle_limit = MODBUS_INITIAL_CONNECT_IDLE_SECONDS
+                            label = "no initial payload"
+                        if idle_limit > 0 and elapsed >= idle_limit:
                             log_net(
-                                "Closing idle client connection after "
-                                f"{MODBUS_IDLE_DISCONNECT_SECONDS:.1f}s without payload to allow fast DR reconnect"
+                                f"Closing idle client connection after {elapsed:.1f}s ({label})"
                             )
-                            raise ConnectionError("idle timeout waiting for DR payload")
+                            raise ConnectionError(f"idle timeout: {label}")
                         continue
                     except ConnectionError as e:
                         log_net(f"Connection closed: {e}")
