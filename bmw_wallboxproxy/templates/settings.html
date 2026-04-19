@@ -30,29 +30,41 @@
     <div class="panel-head">
       <div>
         <h2>Home Assistant live data</h2>
-        <div class="panel-note">Source URL, TLS verification, and entity IDs are stored in <span class="monospace">{{ settings_store_path }}</span> when you save them here. In the Home Assistant add-on, the API token stays in the add-on configuration screen.</div>
+        {% if is_supervisor_ha_mode %}
+          <div class="panel-note">This add-on is using Home Assistant's internal Supervisor API proxy. No external Home Assistant URL or manual token is needed here. Only the entity IDs below are configurable.</div>
+        {% else %}
+          <div class="panel-note">Source URL, TLS verification, and entity IDs are stored in <span class="monospace">{{ settings_store_path }}</span> when you save them here. In standalone mode, the app reads Home Assistant through the configured URL and token.</div>
+        {% endif %}
       </div>
     </div>
 
     <div class="controls-stack">
-      <div class="segmented ha-source-grid">
-        <div class="control-box">
-          <label for="ha_url_input">
-            Home Assistant URL
-            <input id="ha_url_input" type="text" value="{{ ha_url }}" placeholder="https://homeassistant.local:8123" autocomplete="off" spellcheck="false">
-          </label>
-        </div>
+      {% if not is_supervisor_ha_mode %}
+        <div class="segmented ha-source-grid">
+          <div class="control-box">
+            <label for="ha_url_input">
+              Home Assistant URL
+              <input id="ha_url_input" type="text" value="{{ ha_url }}" placeholder="https://homeassistant.local:8123" autocomplete="off" spellcheck="false">
+            </label>
+          </div>
 
-        <div class="control-box">
-          <label for="ha_verify_tls_select">
-            TLS certificate verification
-            <select id="ha_verify_tls_select">
-              <option value="true"{% if ha_verify_tls %} selected{% endif %}>Enabled</option>
-              <option value="false"{% if not ha_verify_tls %} selected{% endif %}>Disabled</option>
-            </select>
-          </label>
+          <div class="control-box">
+            <label for="ha_verify_tls_select">
+              TLS certificate verification
+              <select id="ha_verify_tls_select">
+                <option value="true"{% if ha_verify_tls %} selected{% endif %}>Enabled</option>
+                <option value="false"{% if not ha_verify_tls %} selected{% endif %}>Disabled</option>
+              </select>
+            </label>
+          </div>
         </div>
-      </div>
+      {% else %}
+        <div class="control-box">
+          <div class="subheading">Connection mode</div>
+          <div class="note">Using the internal Home Assistant API proxy: <span class="monospace">http://supervisor/core/api</span></div>
+          <div class="note">Auth mode: <span class="monospace">{{ ha_auth_mode }}</span></div>
+        </div>
+      {% endif %}
 
       <div class="entity-grid">
         {% for field in ha_entity_fields %}
@@ -75,8 +87,8 @@
       </div>
 
       <div class="toolbar ha-actions">
-        <div class="note" id="ha_live_data_note">Persist the Home Assistant source settings without editing code by hand.</div>
-        <button id="ha_live_data_button" type="button">Save HA source settings</button>
+        <div class="note" id="ha_live_data_note">{% if is_supervisor_ha_mode %}Persist entity IDs for the internal Home Assistant API proxy without editing code by hand.{% else %}Persist the Home Assistant source settings without editing code by hand.{% endif %}</div>
+        <button id="ha_live_data_button" type="button">{% if is_supervisor_ha_mode %}Save entity settings{% else %}Save HA source settings{% endif %}</button>
       </div>
     </div>
   </section>

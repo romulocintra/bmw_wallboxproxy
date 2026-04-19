@@ -3,8 +3,10 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from config import (
     get_ha_entity_fields,
     get_ha_entities,
+    get_ha_auth_mode,
     get_ha_url,
     get_ha_verify_tls,
+    is_supervisor_ha_mode,
     get_runtime_settings_store,
     save_env_setting,
     update_ha_live_data_settings,
@@ -87,9 +89,11 @@ def settings():
     return render_template(
         "settings.html",
         active_page="settings",
+        ha_auth_mode=get_ha_auth_mode(),
         ha_entity_fields=get_ha_entity_fields(),
         ha_url=get_ha_url(),
         ha_verify_tls=get_ha_verify_tls(),
+        is_supervisor_ha_mode=is_supervisor_ha_mode(),
         settings_store_path=get_runtime_settings_store(),
     )
 
@@ -122,8 +126,10 @@ def api_state():
                 "register_alias_mode_options": list(ALLOWED_REGISTER_ALIAS_MODES),
                 "compatibility_profile": get_compatibility_profile_name(),
                 "compatibility_profile_options": ["custom", *list(COMPATIBILITY_PROFILES.keys())],
+                "ha_auth_mode": get_ha_auth_mode(),
                 "ha_url": get_ha_url(),
                 "ha_verify_tls": get_ha_verify_tls(),
+                "is_supervisor_ha_mode": is_supervisor_ha_mode(),
                 "ha_entities": get_ha_entities(),
             },
         }

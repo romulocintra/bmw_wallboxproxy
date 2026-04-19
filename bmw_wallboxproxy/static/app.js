@@ -529,14 +529,16 @@ function updateSettingSelect(selectId, settingsKey, optionsKey, optionsStoreName
 function updateHaLiveDataSettings(settings) {
   const urlInput = byId('ha_url_input');
   const verifyTlsSelect = byId('ha_verify_tls_select');
-  if (!urlInput || !verifyTlsSelect || !settings) {
+  if (!settings) {
     return;
   }
 
-  if (!haLiveDataDirty && !haLiveDataApplying) {
+  if (urlInput && verifyTlsSelect && !haLiveDataDirty && !haLiveDataApplying) {
     urlInput.value = settings.ha_url || '';
     verifyTlsSelect.value = settings.ha_verify_tls ? 'true' : 'false';
+  }
 
+  if (!haLiveDataDirty && !haLiveDataApplying) {
     const entities = settings.ha_entities || {};
     document.querySelectorAll('.ha-entity-input').forEach((input) => {
       const key = input.dataset.entityKey;
@@ -742,7 +744,7 @@ async function applyHaLiveDataSettings() {
   const note = byId('ha_live_data_note');
   const urlInput = byId('ha_url_input');
   const verifyTlsSelect = byId('ha_verify_tls_select');
-  if (!button || !note || !urlInput || !verifyTlsSelect) {
+  if (!button || !note) {
     return;
   }
 
@@ -755,8 +757,8 @@ async function applyHaLiveDataSettings() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ha_url: urlInput.value.trim(),
-        ha_verify_tls: verifyTlsSelect.value === 'true',
+        ha_url: urlInput ? urlInput.value.trim() : '',
+        ha_verify_tls: verifyTlsSelect ? verifyTlsSelect.value === 'true' : false,
         entities: collectHaEntitySettings()
       })
     });
@@ -768,11 +770,11 @@ async function applyHaLiveDataSettings() {
 
     haLiveDataDirty = false;
     note.textContent = payload.changed
-      ? 'Home Assistant source settings saved to .env and applied to the live poller.'
-      : 'Home Assistant source settings were already up to date.';
+      ? 'Home Assistant settings saved and applied to the live poller.'
+      : 'Home Assistant settings were already up to date.';
     await refreshData();
   } catch (error) {
-    note.textContent = `HA source settings failed: ${error.message}`;
+    note.textContent = `HA settings failed: ${error.message}`;
   } finally {
     haLiveDataApplying = false;
     button.disabled = false;

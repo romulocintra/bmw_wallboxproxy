@@ -229,6 +229,10 @@ def get_ha_auth_mode() -> str:
     return "none"
 
 
+def is_supervisor_ha_mode() -> bool:
+    return get_ha_auth_mode() == "supervisor"
+
+
 def has_ha_auth() -> bool:
     return bool(get_ha_auth_token())
 
@@ -256,9 +260,13 @@ def get_ha_entity_fields() -> list[dict[str, str]]:
 def update_ha_live_data_settings(ha_url: str, verify_tls: bool, entities: dict[str, str]) -> bool:
     global HA_URL, HA_VERIFY_TLS
 
-    normalized_url = ha_url.strip().rstrip("/")
-    if not normalized_url or not _is_valid_url(normalized_url):
-        raise ValueError("invalid Home Assistant URL")
+    if is_supervisor_ha_mode():
+        normalized_url = HA_URL
+        verify_tls = False
+    else:
+        normalized_url = ha_url.strip().rstrip("/")
+        if not normalized_url or not _is_valid_url(normalized_url):
+            raise ValueError("invalid Home Assistant URL")
 
     missing_keys = [key for key, _label, _help in ENTITY_FIELDS if key not in entities]
     if missing_keys:
