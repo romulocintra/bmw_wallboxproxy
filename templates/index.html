@@ -1,0 +1,1028 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BMW Meter Emulator</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #10233d;
+      --panel: rgba(11, 22, 39, 0.84);
+      --panel-strong: rgba(8, 17, 31, 0.94);
+      --line: rgba(162, 184, 214, 0.18);
+      --text: #eef4ff;
+      --muted: #92a4bf;
+      --accent: #6ed0ff;
+      --ok: #77e0a8;
+      --warn: #ffc86b;
+      --bad: #ff8e8e;
+      --chip: rgba(255, 255, 255, 0.06);
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+      --radius-lg: 20px;
+      --radius-md: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(47, 178, 255, 0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(255, 200, 107, 0.12), transparent 26%),
+        linear-gradient(180deg, #0a1830 0%, #07111f 58%, #050c17 100%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      width: min(1500px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 28px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .hero {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+      background:
+        linear-gradient(135deg, rgba(18, 45, 80, 0.88), rgba(7, 18, 32, 0.92)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1;
+    }
+
+    .hero-copy {
+      max-width: 760px;
+    }
+
+    .hero-copy p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .refresh-box {
+      min-width: 280px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      display: grid;
+      gap: 10px;
+    }
+
+    .refresh-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tiny-label,
+    .strip-title,
+    .subheading,
+    .log-label,
+    .small {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .refresh-value,
+    pre {
+      font-family: Consolas, "SFMono-Regular", monospace;
+    }
+
+    .refresh-value {
+      font-size: 14px;
+    }
+
+    .hero-strip,
+    .quick-stats,
+    .control-grid,
+    .main-grid,
+    .diag-grid,
+    .metric-grid,
+    .segmented,
+    .kv-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .quick-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .control-grid { grid-template-columns: 1.2fr 1fr; }
+    .main-grid { grid-template-columns: 1.2fr 0.95fr; }
+    .diag-grid { grid-template-columns: 1.15fr 0.85fr; }
+    .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .segmented { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .strip-card,
+    .stat-card,
+    .panel,
+    .metric,
+    .control-box,
+    .kv,
+    details {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: var(--panel-strong);
+    }
+
+    .strip-card,
+    .stat-card,
+    .panel,
+    .metric,
+    .control-box,
+    .kv {
+      padding: 16px;
+    }
+
+    .strip-card { display: grid; gap: 8px; }
+
+    .strip-value,
+    .val {
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .badge-row,
+    .quick-actions,
+    .toolbar,
+    .controls-stack,
+    .status-groups,
+    .log-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .badge-row,
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--chip);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .badge.good .badge-dot { background: var(--ok); }
+    .badge.warn .badge-dot { background: var(--warn); }
+    .badge.bad .badge-dot { background: var(--bad); }
+    .badge.neutral .badge-dot { background: var(--accent); }
+
+    .panel h2 { margin: 0; font-size: 18px; }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-note,
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .metric.wide { grid-column: span 3; }
+
+    .toolbar {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+    }
+
+    .toolbar label,
+    .control-box label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    select,
+    button {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #091423;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+
+    button {
+      width: auto;
+      min-width: 116px;
+      background: linear-gradient(135deg, #0f6bd9, #1fb7ff);
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+    }
+
+    button:disabled { opacity: 0.6; cursor: wait; }
+
+    .value {
+      margin-top: 6px;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: 14px;
+      background: #060d18;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #c7dbff;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    details {
+      padding: 12px;
+    }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+    .hidden-mobile { display: inline; }
+
+    @media (max-width: 1160px) {
+      .hero-strip,
+      .quick-stats,
+      .control-grid,
+      .main-grid,
+      .diag-grid { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric.wide { grid-column: span 2; }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { width: min(100% - 20px, 100%); padding: 10px 0 20px; }
+      .hero { padding: 18px; }
+      .refresh-box { min-width: 0; width: 100%; }
+      .hero-strip,
+      .quick-stats,
+      .segmented,
+      .metric-grid,
+      .kv-grid,
+      .toolbar { grid-template-columns: 1fr; }
+      .metric.wide { grid-column: span 1; }
+      .hidden-mobile { display: none; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="card hero">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <div class="eyebrow">BMW Wallbox Telemetry Bridge</div>
+        <h1>Meter Emulator Control Room</h1>
+        <p>Live electrical values stay front and center, while protocol diagnostics remain one layer down instead of taking over the screen.</p>
+      </div>
+      <div class="refresh-box">
+        <div class="refresh-row">
+          <div>
+            <div class="tiny-label">Refresh</div>
+            <div class="refresh-value" id="refresh_state">Live every 1s</div>
+          </div>
+          <button id="refresh_toggle_button" class="secondary" type="button">Pause</button>
+        </div>
+        <div class="refresh-row">
+          <div>
+            <div class="tiny-label">Last UI update</div>
+            <div class="refresh-value" id="last_refresh">-</div>
+          </div>
+          <div>
+            <div class="tiny-label">Client session</div>
+            <div class="refresh-value" id="session_snapshot">Waiting</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-strip">
+      <div class="strip-card">
+        <div class="strip-title">Connection</div>
+        <div class="strip-value" id="hero_connection_text">Idle</div>
+        <div class="badge-row"><div class="badge neutral" id="hero_connection_badge"><span class="badge-dot"></span><span>Waiting for client</span></div></div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-title">Transport</div>
+        <div class="strip-value" id="hero_transport_mode">-</div>
+        <div class="badge-row"><div class="badge neutral" id="hero_profile_badge"><span class="badge-dot"></span><span>Profile: -</span></div></div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-title">Reachability</div>
+        <div class="strip-value" id="hero_reachability_text">-</div>
+        <div class="badge-row"><div class="badge neutral" id="hero_reachability_badge"><span class="badge-dot"></span><span>Listening</span></div></div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-title">Last request</div>
+        <div class="strip-value" id="hero_last_request">-</div>
+        <div class="note">Function code, start address, and requested register count from the latest decoded poll.</div>
+      </div>
+    </div>
+
+    <div class="quick-stats">
+      <div class="stat-card"><div class="strip-title">Power now</div><div class="strip-value" id="p_total">-</div></div>
+      <div class="stat-card"><div class="strip-title">Frequency</div><div class="strip-value" id="freq">-</div></div>
+      <div class="stat-card"><div class="strip-title">Import energy</div><div class="strip-value" id="eimp">-</div></div>
+      <div class="stat-card"><div class="strip-title">Export energy</div><div class="strip-value" id="eexp">-</div></div>
+    </div>
+  </section>
+
+  <section class="control-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Session controls</h2>
+          <div class="panel-note">Transport changes are persisted now, so the next restart comes back in the same mode and compatibility profile.</div>
+        </div>
+      </div>
+
+      <div class="controls-stack">
+        <div class="control-box">
+          <div class="subheading">Transport</div>
+          <div class="toolbar">
+            <label>
+              Mode
+              <select id="transport_mode_select"></select>
+            </label>
+            <button id="transport_mode_button" type="button">Apply</button>
+          </div>
+          <div class="note" id="transport_mode_note">Switch between native Modbus TCP and RTU-over-TCP framing. Changing mode closes the current client connection.</div>
+        </div>
+
+        <div class="control-box">
+          <div class="subheading">Quick profiles</div>
+          <div class="quick-actions">
+            <button id="quick_profile_rtu" class="secondary" type="button">DR gateway / RTU</button>
+            <button id="quick_profile_tcp" class="secondary" type="button">Direct Modbus TCP</button>
+          </div>
+          <div class="note">Use the quick presets when switching between your working DR gateway setup and direct Modbus TCP experiments.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Compatibility tuning</h2>
+          <div class="panel-note">Keep these advanced settings tucked away unless the wallbox needs a different profile, word order, or register offset behavior.</div>
+        </div>
+      </div>
+
+      <details>
+        <summary>Advanced compatibility options</summary>
+        <div class="controls-stack" style="margin-top: 12px;">
+          <div class="control-box">
+            <div class="toolbar">
+              <label>
+                Profile
+                <select id="compatibility_profile_select"></select>
+              </label>
+              <button id="compatibility_profile_button" type="button">Apply</button>
+            </div>
+          </div>
+
+          <div class="segmented">
+            <div class="control-box">
+              <label>
+                Float word order
+                <select id="float_word_order_select"></select>
+              </label>
+              <button id="float_word_order_button" type="button">Apply</button>
+            </div>
+            <div class="control-box">
+              <label>
+                Register alias mode
+                <select id="register_alias_mode_select"></select>
+              </label>
+              <button id="register_alias_mode_button" type="button">Apply</button>
+            </div>
+          </div>
+
+          <div class="note" id="compatibility_note">Use these to test PRO380 word-order and 0-based or 1-based address compatibility.</div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="main-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Live electrical data</h2>
+          <div class="panel-note">Instant meter snapshot served to the wallbox. The phase cards stay compact so the important values remain readable on mobile.</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric"><div class="small">Voltage L1</div><div class="val" id="u1">-</div></div>
+        <div class="metric"><div class="small">Voltage L2</div><div class="val" id="u2">-</div></div>
+        <div class="metric"><div class="small">Voltage L3</div><div class="val" id="u3">-</div></div>
+        <div class="metric"><div class="small">Current L1</div><div class="val" id="i1">-</div></div>
+        <div class="metric"><div class="small">Current L2</div><div class="val" id="i2">-</div></div>
+        <div class="metric"><div class="small">Current L3</div><div class="val" id="i3">-</div></div>
+        <div class="metric wide"><div class="small">Phase power</div><div class="val" id="p_phases">-</div></div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Protocol status</h2>
+          <div class="panel-note">Operational state is grouped into session, frame health, and diagnostics so a transport mismatch is obvious immediately.</div>
+        </div>
+      </div>
+
+      <div class="status-groups">
+        <div>
+          <div class="subheading">Session</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="small">TCP connected</div><div class="value" id="tcp_connected">-</div></div>
+            <div class="kv"><div class="small">Transport mode</div><div class="value" id="transport_mode">-</div></div>
+            <div class="kv"><div class="small">Compatibility profile</div><div class="value" id="compatibility_profile">-</div></div>
+            <div class="kv"><div class="small">Reachability</div><div class="value" id="transport_reachability">-</div></div>
+            <div class="kv"><div class="small">Last connect</div><div class="value" id="last_connect">-</div></div>
+            <div class="kv"><div class="small">Last disconnect</div><div class="value" id="last_disconnect">-</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subheading">Frame health</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="small">RX frames</div><div class="value" id="rx_frames">-</div></div>
+            <div class="kv"><div class="small">TX frames</div><div class="value" id="tx_frames">-</div></div>
+            <div class="kv"><div class="small">Bytes RX / TX</div><div class="value" id="bytes_flow">-</div></div>
+            <div class="kv"><div class="small">CRC fail</div><div class="value" id="crc_fail">-</div></div>
+            <div class="kv"><div class="small">Wrong slave</div><div class="value" id="wrong_slave">-</div></div>
+            <div class="kv"><div class="small">Unsupported FC</div><div class="value" id="unsupported_fc">-</div></div>
+            <div class="kv"><div class="small">Bad quantity</div><div class="value" id="illegal_quantity">-</div></div>
+            <div class="kv"><div class="small">Short frames</div><div class="value" id="short_frames">-</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subheading">Last decoded request</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="small">Function code</div><div class="value" id="last_fc">-</div></div>
+            <div class="kv"><div class="small">Start addr / qty</div><div class="value" id="last_addr_qty">-</div></div>
+            <div class="kv"><div class="small">Word order</div><div class="value" id="float_word_order">-</div></div>
+            <div class="kv"><div class="small">Alias mode</div><div class="value" id="register_alias_mode">-</div></div>
+            <div class="kv"><div class="small">CRC recv / exp</div><div class="value" id="last_crc">-</div></div>
+            <div class="kv"><div class="small">Transaction ID</div><div class="value" id="last_transaction_id">-</div></div>
+            <div class="kv"><div class="small">Last exception</div><div class="value" id="last_exception">-</div></div>
+            <div class="kv"><div class="small">Buffer len</div><div class="value" id="last_buffer_len">-</div></div>
+            <div class="kv"><div class="small">Accept errors</div><div class="value" id="tcp_accept_errors">-</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="diag-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Modbus activity</h2>
+          <div class="panel-note">Decoded requests are promoted to the top. The raw protocol log stays available underneath when you need the internal trace.</div>
+        </div>
+      </div>
+
+      <div class="log-stack">
+        <div>
+          <div class="log-label">Decoded requests</div>
+          <pre id="modbus_decoded_log"></pre>
+        </div>
+        <details>
+          <summary>Raw Modbus trace</summary>
+          <pre id="modbus_log"></pre>
+        </details>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Network diagnostics</h2>
+          <div class="panel-note">Connection-level events stay visible. The raw TCP packet dump remains hidden unless you are debugging framing by hand.</div>
+        </div>
+      </div>
+
+      <div class="log-stack">
+        <div>
+          <div class="log-label">Network log</div>
+          <pre id="net_log"></pre>
+        </div>
+        <details>
+          <summary>TCP raw packets <span class="hidden-mobile">(advanced)</span></summary>
+          <pre id="tcp_raw_log"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+var transportModeOptions = [];
+var transportModeDirty = false;
+var transportModeApplying = false;
+var floatWordOrderOptions = [];
+var floatWordOrderDirty = false;
+var floatWordOrderApplying = false;
+var registerAliasModeOptions = [];
+var registerAliasModeDirty = false;
+var registerAliasModeApplying = false;
+var compatibilityProfileOptions = [];
+var compatibilityProfileDirty = false;
+var compatibilityProfileApplying = false;
+var autoRefreshEnabled = true;
+
+const REGISTER_GROUPS = [
+  { start: 0x5000, end: 0x5001, label: 'Voltage' },
+  { start: 0x5002, end: 0x5003, label: 'Voltage L1' },
+  { start: 0x5004, end: 0x5005, label: 'Voltage L2' },
+  { start: 0x5006, end: 0x5007, label: 'Voltage L3' },
+  { start: 0x5008, end: 0x5009, label: 'Frequency' },
+  { start: 0x500A, end: 0x500B, label: 'Current' },
+  { start: 0x500C, end: 0x500D, label: 'Current L1' },
+  { start: 0x500E, end: 0x500F, label: 'Current L2' },
+  { start: 0x5010, end: 0x5011, label: 'Current L3' },
+  { start: 0x5012, end: 0x5013, label: 'Total active power' },
+  { start: 0x5014, end: 0x5015, label: 'Active power L1' },
+  { start: 0x5016, end: 0x5017, label: 'Active power L2' },
+  { start: 0x5018, end: 0x5019, label: 'Active power L3' },
+  { start: 0x501A, end: 0x501B, label: 'Total reactive power' },
+  { start: 0x501C, end: 0x501D, label: 'Reactive power L1' },
+  { start: 0x501E, end: 0x501F, label: 'Reactive power L2' },
+  { start: 0x5020, end: 0x5021, label: 'Reactive power L3' },
+  { start: 0x5022, end: 0x5023, label: 'Total apparent power' },
+  { start: 0x5024, end: 0x5025, label: 'Apparent power L1' },
+  { start: 0x5026, end: 0x5027, label: 'Apparent power L2' },
+  { start: 0x5028, end: 0x5029, label: 'Apparent power L3' },
+  { start: 0x502A, end: 0x502B, label: 'Power factor' },
+  { start: 0x502C, end: 0x502D, label: 'Power factor L1' },
+  { start: 0x502E, end: 0x502F, label: 'Power factor L2' },
+  { start: 0x5030, end: 0x5031, label: 'Power factor L3' },
+  { start: 0x6000, end: 0x6001, label: 'Total active energy' },
+  { start: 0x6002, end: 0x6003, label: 'T1 total active energy' },
+  { start: 0x6004, end: 0x6005, label: 'T2 total active energy' },
+  { start: 0x6006, end: 0x6007, label: 'L1 total active energy' },
+  { start: 0x6008, end: 0x6009, label: 'L2 total active energy' },
+  { start: 0x600A, end: 0x600B, label: 'L3 total active energy' },
+  { start: 0x600C, end: 0x600D, label: 'Forward active energy' },
+  { start: 0x600E, end: 0x600F, label: 'T1 forward active energy' },
+  { start: 0x6010, end: 0x6011, label: 'T2 forward active energy' },
+  { start: 0x6012, end: 0x6013, label: 'L1 forward active energy' },
+  { start: 0x6014, end: 0x6015, label: 'L2 forward active energy' },
+  { start: 0x6016, end: 0x6017, label: 'L3 forward active energy' },
+  { start: 0x6018, end: 0x6019, label: 'Reverse active energy' },
+  { start: 0x601A, end: 0x601B, label: 'T1 reverse active energy' },
+  { start: 0x601C, end: 0x601D, label: 'T2 reverse active energy' },
+  { start: 0x601E, end: 0x601F, label: 'L1 reverse active energy' },
+  { start: 0x6020, end: 0x6021, label: 'L2 reverse active energy' },
+  { start: 0x6022, end: 0x6023, label: 'L3 reverse active energy' },
+];
+
+function formatHexWord(value) {
+  return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
+}
+
+function describeRegisterRange(startAddr, quantity) {
+  const endAddr = startAddr + quantity - 1;
+  const overlaps = REGISTER_GROUPS
+    .filter((group) => group.end >= startAddr && group.start <= endAddr)
+    .map((group) => group.label);
+
+  if (overlaps.length) {
+    return overlaps.join(', ');
+  }
+
+  if (startAddr >= 0x5000 && endAddr <= 0x50FF) {
+    return 'Measurement register block';
+  }
+  if (startAddr >= 0x6000 && endAddr <= 0x60FF) {
+    return 'Energy register block';
+  }
+  return 'Unmapped or vendor-specific block';
+}
+
+function parseWordList(wordsText) {
+  if (!wordsText) {
+    return [];
+  }
+  return wordsText.trim().split(/\s+/).filter(Boolean);
+}
+
+function countNonZeroWords(words) {
+  return words.reduce((count, word) => count + (word !== '0000' ? 1 : 0), 0);
+}
+
+function buildDecodedModbusLog(logLines) {
+  const decoded = [];
+  let pendingRequest = null;
+
+  for (let index = logLines.length - 1; index >= 0; index -= 1) {
+    const line = logLines[index];
+    const mapMatch = line.match(/^(\d{2}:\d{2}:\d{2})\s+MAP slave=(\d+) fc=(\d+) addr=0x([0-9A-F]+)-0x([0-9A-F]+) words=(.*)$/);
+    if (mapMatch) {
+      if (
+        pendingRequest &&
+        pendingRequest.slave === Number(mapMatch[2]) &&
+        pendingRequest.functionCode === Number(mapMatch[3]) &&
+        pendingRequest.startAddr === parseInt(mapMatch[4], 16) &&
+        pendingRequest.endAddr === parseInt(mapMatch[5], 16)
+      ) {
+        const words = parseWordList(mapMatch[6]);
+        const nonZeroWords = countNonZeroWords(words);
+        pendingRequest.responseSummary = `${words.length} regs returned, ${nonZeroWords} non-zero`;
+        pendingRequest = null;
+      }
+      continue;
+    }
+
+    const decMatch = line.match(/^(\d{2}:\d{2}:\d{2})\s+DEC mode=([^\s]+) slave=(\d+) fc=(\d+) start=0x([0-9A-F]+) qty=(\d+)$/);
+    if (!decMatch) {
+      continue;
+    }
+
+    const timestamp = decMatch[1];
+    const transport = decMatch[2];
+    const slave = Number(decMatch[3]);
+    const functionCode = Number(decMatch[4]);
+    const startAddr = parseInt(decMatch[5], 16);
+    const quantity = Number(decMatch[6]);
+    const endAddr = startAddr + quantity - 1;
+    const description = describeRegisterRange(startAddr, quantity);
+
+    const entry = {
+      slave,
+      functionCode,
+      startAddr,
+      endAddr,
+      responseSummary: 'response pending',
+      text:
+        `${timestamp}  ${transport} fc=${functionCode} slave=${slave} ${formatHexWord(startAddr)}-${formatHexWord(endAddr)} qty=${quantity}\n` +
+        `        ${description}`,
+    };
+
+    pendingRequest = entry;
+    decoded.push(entry);
+  }
+
+  if (!decoded.length) {
+    return 'Waiting for decoded Modbus traffic...';
+  }
+
+  return decoded
+    .slice(-20)
+    .reverse()
+    .map((entry) => `${entry.text}\n        ${entry.responseSummary}`)
+    .join('\n\n');
+}
+
+function setBadge(id, text, tone) {
+  const badge = document.getElementById(id);
+  badge.className = `badge ${tone}`;
+  badge.innerHTML = `<span class="badge-dot"></span><span>${text}</span>`;
+}
+
+function formatConnectionSummary(stats) {
+  if (stats.tcp_connected) {
+    return 'Client connected';
+  }
+  if (stats.tcp_connects > 0) {
+    return 'Waiting for reconnect';
+  }
+  return 'Idle';
+}
+
+function formatLastRequest(stats) {
+  if (stats.last_fc === '-' || stats.last_start_addr === '-') {
+    return 'No decoded frame yet';
+  }
+  return `FC ${stats.last_fc} / ${stats.last_start_addr} / ${stats.last_quantity}`;
+}
+
+function formatSessionSnapshot(stats) {
+  if (stats.tcp_connected) {
+    return `Connected since ${stats.last_connect}`;
+  }
+  if (stats.last_disconnect && stats.last_disconnect !== '-') {
+    return `Last disconnect ${stats.last_disconnect}`;
+  }
+  return 'Waiting';
+}
+
+function updateTransportModeSelect(settings, stats) {
+  const select = document.getElementById('transport_mode_select');
+  const current = settings?.transport_mode || stats.transport_mode;
+  const options = settings?.transport_mode_options || transportModeOptions;
+
+  if (options.length && JSON.stringify(options) !== JSON.stringify(transportModeOptions)) {
+    transportModeOptions = options.slice();
+    select.innerHTML = '';
+    for (const mode of transportModeOptions) {
+      const option = document.createElement('option');
+      option.value = mode;
+      option.textContent = mode;
+      select.appendChild(option);
+    }
+  }
+
+  if (current && !transportModeDirty && !transportModeApplying) {
+    select.value = current;
+  }
+}
+
+function updateSettingSelect(selectId, settingsKey, optionsKey, optionsStoreName, dirtyFlag, applyingFlag, settings, stats) {
+  const select = document.getElementById(selectId);
+  const current = settings?.[settingsKey] || stats[settingsKey];
+  const options = settings?.[optionsKey] || window[optionsStoreName];
+
+  if (options.length && JSON.stringify(options) !== JSON.stringify(window[optionsStoreName])) {
+    window[optionsStoreName] = options.slice();
+    select.innerHTML = '';
+    for (const value of window[optionsStoreName]) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      select.appendChild(option);
+    }
+  }
+
+  if (current && !window[dirtyFlag] && !window[applyingFlag]) {
+    select.value = current;
+  }
+}
+
+function updateRefreshWidgets() {
+  document.getElementById('refresh_state').textContent = autoRefreshEnabled ? 'Live every 1s' : 'Paused';
+  document.getElementById('refresh_toggle_button').textContent = autoRefreshEnabled ? 'Pause' : 'Resume';
+}
+
+async function refreshData() {
+  if (!autoRefreshEnabled) {
+    return;
+  }
+
+  const r = await fetch('/api/state');
+  const d = await r.json();
+  const v = d.values;
+  const s = d.stats;
+
+  updateTransportModeSelect(d.settings, s);
+  updateSettingSelect('compatibility_profile_select', 'compatibility_profile', 'compatibility_profile_options', 'compatibilityProfileOptions', 'compatibilityProfileDirty', 'compatibilityProfileApplying', d.settings, s);
+  updateSettingSelect('float_word_order_select', 'float_word_order', 'float_word_order_options', 'floatWordOrderOptions', 'floatWordOrderDirty', 'floatWordOrderApplying', d.settings, s);
+  updateSettingSelect('register_alias_mode_select', 'register_alias_mode', 'register_alias_mode_options', 'registerAliasModeOptions', 'registerAliasModeDirty', 'registerAliasModeApplying', d.settings, s);
+
+  document.getElementById('u1').textContent = `${v.u1.toFixed(1)} V`;
+  document.getElementById('u2').textContent = `${v.u2.toFixed(1)} V`;
+  document.getElementById('u3').textContent = `${v.u3.toFixed(1)} V`;
+  document.getElementById('i1').textContent = `${v.i1.toFixed(2)} A`;
+  document.getElementById('i2').textContent = `${v.i2.toFixed(2)} A`;
+  document.getElementById('i3').textContent = `${v.i3.toFixed(2)} A`;
+  document.getElementById('p_total').textContent = `${v.p_total.toFixed(0)} W`;
+  document.getElementById('freq').textContent = `${v.freq.toFixed(2)} Hz`;
+  document.getElementById('p_phases').textContent = `${v.p1.toFixed(0)} / ${v.p2.toFixed(0)} / ${v.p3.toFixed(0)} W`;
+  document.getElementById('eimp').textContent = `${v.e_import_total.toFixed(3)}`;
+  document.getElementById('eexp').textContent = `${v.e_export_total.toFixed(3)}`;
+
+  const connectionTone = s.tcp_connected ? 'good' : (s.tcp_connects > 0 ? 'warn' : 'neutral');
+  const reachabilityTone = s.transport_reachability_code === 'valid_modbus_seen'
+    ? 'good'
+    : (s.transport_reachability_code === 'payload_seen' || s.transport_reachability_code === 'connected_no_payload' ? 'warn' : 'neutral');
+
+  document.getElementById('tcp_connected').textContent = s.tcp_connected ? 'Connected' : 'Disconnected';
+  document.getElementById('transport_mode').textContent = s.transport_mode;
+  document.getElementById('float_word_order').textContent = s.float_word_order;
+  document.getElementById('compatibility_profile').textContent = s.compatibility_profile;
+  document.getElementById('transport_reachability').textContent = s.transport_reachability;
+  document.getElementById('last_connect').textContent = s.last_connect;
+  document.getElementById('last_disconnect').textContent = s.last_disconnect;
+  document.getElementById('register_alias_mode').textContent = s.register_alias_mode;
+  document.getElementById('tcp_accept_errors').textContent = s.tcp_accept_errors;
+  document.getElementById('rx_frames').textContent = s.rx_frames;
+  document.getElementById('tx_frames').textContent = s.tx_frames;
+  document.getElementById('crc_fail').textContent = s.crc_fail;
+  document.getElementById('wrong_slave').textContent = s.wrong_slave;
+  document.getElementById('short_frames').textContent = s.short_frames;
+  document.getElementById('illegal_quantity').textContent = s.illegal_quantity;
+  document.getElementById('unsupported_fc').textContent = s.unsupported_fc;
+  document.getElementById('bytes_flow').textContent = `${s.bytes_rx} / ${s.bytes_tx}`;
+  document.getElementById('last_fc').textContent = s.last_fc;
+  document.getElementById('last_addr_qty').textContent = `${s.last_start_addr} / ${s.last_quantity}`;
+  document.getElementById('last_crc').textContent = `${s.last_crc_received} / ${s.last_crc_expected}`;
+  document.getElementById('last_transaction_id').textContent = s.last_transaction_id;
+  document.getElementById('last_exception').textContent = s.last_exception;
+  document.getElementById('last_buffer_len').textContent = s.last_buffer_len;
+
+  document.getElementById('hero_connection_text').textContent = formatConnectionSummary(s);
+  document.getElementById('hero_transport_mode').textContent = s.transport_mode;
+  document.getElementById('hero_reachability_text').textContent = s.transport_reachability;
+  document.getElementById('hero_last_request').textContent = formatLastRequest(s);
+  document.getElementById('session_snapshot').textContent = formatSessionSnapshot(s);
+  document.getElementById('last_refresh').textContent = new Date().toLocaleTimeString();
+
+  setBadge('hero_connection_badge', s.tcp_connected ? 'Session live' : formatConnectionSummary(s), connectionTone);
+  setBadge('hero_profile_badge', `Profile: ${s.compatibility_profile}`, 'neutral');
+  setBadge('hero_reachability_badge', s.transport_reachability, reachabilityTone);
+
+  document.getElementById('modbus_decoded_log').textContent = buildDecodedModbusLog(d.modbus_log);
+  document.getElementById('modbus_log').textContent = d.modbus_log.join('\n');
+  document.getElementById('net_log').textContent = d.net_log.join('\n');
+  document.getElementById('tcp_raw_log').textContent = d.tcp_raw_log.join('\n');
+}
+
+async function applyTransportMode() {
+  const button = document.getElementById('transport_mode_button');
+  const select = document.getElementById('transport_mode_select');
+  const note = document.getElementById('transport_mode_note');
+  transportModeApplying = true;
+  button.disabled = true;
+  note.textContent = 'Applying transport mode...';
+
+  try {
+    const response = await fetch('/api/settings/transport-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: select.value }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || 'failed to update transport mode');
+    }
+
+    transportModeDirty = false;
+    note.textContent = payload.changed
+      ? `Transport mode set to ${payload.transport_mode}. Waiting for TCP client reconnect.`
+      : `Transport mode already set to ${payload.transport_mode}.`;
+    await refreshData();
+  } catch (error) {
+    note.textContent = `Mode change failed: ${error.message}`;
+  } finally {
+    transportModeApplying = false;
+    button.disabled = false;
+  }
+}
+
+async function applyCompatibilitySetting({ buttonId, selectId, noteId, endpoint, bodyKey, dirtyFlag, applyingFlag, responseKey, label }) {
+  const button = document.getElementById(buttonId);
+  const select = document.getElementById(selectId);
+  const note = document.getElementById(noteId);
+  window[applyingFlag] = true;
+  button.disabled = true;
+  note.textContent = `Applying ${label}...`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [bodyKey]: select.value }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || `failed to update ${label}`);
+    }
+
+    window[dirtyFlag] = false;
+    note.textContent = payload.changed ? `${label} set to ${payload[responseKey]}.` : `${label} already set to ${payload[responseKey]}.`;
+    await refreshData();
+  } catch (error) {
+    note.textContent = `${label} change failed: ${error.message}`;
+  } finally {
+    window[applyingFlag] = false;
+    button.disabled = false;
+  }
+}
+
+async function applyCompatibilityProfile(profileName) {
+  const note = document.getElementById('compatibility_note');
+  note.textContent = `Applying ${profileName}...`;
+
+  try {
+    const response = await fetch('/api/settings/compatibility-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: profileName }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || 'failed to update compatibility profile');
+    }
+
+    compatibilityProfileDirty = false;
+    note.textContent = payload.changed ? `Compatibility profile set to ${payload.compatibility_profile}.` : `Compatibility profile already set to ${payload.compatibility_profile}.`;
+    await refreshData();
+  } catch (error) {
+    note.textContent = `Compatibility profile change failed: ${error.message}`;
+  }
+}
+
+document.getElementById('transport_mode_select').addEventListener('change', () => { transportModeDirty = true; });
+document.getElementById('transport_mode_button').addEventListener('click', applyTransportMode);
+document.getElementById('compatibility_profile_select').addEventListener('change', () => { compatibilityProfileDirty = true; });
+document.getElementById('compatibility_profile_button').addEventListener('click', () => applyCompatibilitySetting({ buttonId: 'compatibility_profile_button', selectId: 'compatibility_profile_select', noteId: 'compatibility_note', endpoint: '/api/settings/compatibility-profile', bodyKey: 'profile', dirtyFlag: 'compatibilityProfileDirty', applyingFlag: 'compatibilityProfileApplying', responseKey: 'compatibility_profile', label: 'Compatibility profile' }));
+document.getElementById('float_word_order_select').addEventListener('change', () => { floatWordOrderDirty = true; });
+document.getElementById('float_word_order_button').addEventListener('click', () => applyCompatibilitySetting({ buttonId: 'float_word_order_button', selectId: 'float_word_order_select', noteId: 'compatibility_note', endpoint: '/api/settings/float-word-order', bodyKey: 'word_order', dirtyFlag: 'floatWordOrderDirty', applyingFlag: 'floatWordOrderApplying', responseKey: 'float_word_order', label: 'Float word order' }));
+document.getElementById('register_alias_mode_select').addEventListener('change', () => { registerAliasModeDirty = true; });
+document.getElementById('register_alias_mode_button').addEventListener('click', () => applyCompatibilitySetting({ buttonId: 'register_alias_mode_button', selectId: 'register_alias_mode_select', noteId: 'compatibility_note', endpoint: '/api/settings/register-alias-mode', bodyKey: 'alias_mode', dirtyFlag: 'registerAliasModeDirty', applyingFlag: 'registerAliasModeApplying', responseKey: 'register_alias_mode', label: 'Register alias mode' }));
+document.getElementById('quick_profile_rtu').addEventListener('click', () => applyCompatibilityProfile('pro380-default'));
+document.getElementById('quick_profile_tcp').addEventListener('click', () => applyCompatibilityProfile('gateway-modbus-tcp'));
+document.getElementById('refresh_toggle_button').addEventListener('click', async () => {
+  autoRefreshEnabled = !autoRefreshEnabled;
+  updateRefreshWidgets();
+  if (autoRefreshEnabled) {
+    await refreshData();
+  }
+});
+
+updateRefreshWidgets();
+setInterval(refreshData, 1000);
+refreshData();
+</script>
+</body>
+</html>

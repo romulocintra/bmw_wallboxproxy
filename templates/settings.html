@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | BMW Meter Emulator{% endblock %}
+
+{% block content %}
+  <section class="card hero hero-settings">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <div class="eyebrow">Operational tuning</div>
+        <h1>Transport and Home Assistant settings</h1>
+        <p>Transport behavior, compatibility tuning, and the Home Assistant inputs that feed the live meter values can all be managed here without hardcoding them in Python.</p>
+      </div>
+      <div class="refresh-box compact-summary">
+        <div class="refresh-row stacked-row">
+          <div>
+            <div class="tiny-label">Current transport</div>
+            <div class="refresh-value" id="hero_transport_mode">-</div>
+          </div>
+          <div>
+            <div class="tiny-label">Compatibility profile</div>
+            <div class="refresh-value" id="compatibility_profile">-</div>
+          </div>
+        </div>
+        <div class="badge-row"><div class="badge neutral" id="hero_connection_badge"><span class="badge-dot"></span><span>Waiting for client</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card panel">
+    <div class="panel-head">
+      <div>
+        <h2>Home Assistant live data</h2>
+        <div class="panel-note">Source URL, TLS verification, and entity IDs are stored in <span class="monospace">{{ settings_store_path }}</span> when you save them here. In the Home Assistant add-on, the API token stays in the add-on configuration screen.</div>
+      </div>
+    </div>
+
+    <div class="controls-stack">
+      <div class="segmented ha-source-grid">
+        <div class="control-box">
+          <label for="ha_url_input">
+            Home Assistant URL
+            <input id="ha_url_input" type="text" value="{{ ha_url }}" placeholder="https://homeassistant.local:8123" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+
+        <div class="control-box">
+          <label for="ha_verify_tls_select">
+            TLS certificate verification
+            <select id="ha_verify_tls_select">
+              <option value="true"{% if ha_verify_tls %} selected{% endif %}>Enabled</option>
+              <option value="false"{% if not ha_verify_tls %} selected{% endif %}>Disabled</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="entity-grid">
+        {% for field in ha_entity_fields %}
+          <div class="control-box entity-field">
+            <label for="ha_entity_{{ field.key }}">
+              {{ field.label }}
+              <input
+                id="ha_entity_{{ field.key }}"
+                class="ha-entity-input"
+                data-entity-key="{{ field.key }}"
+                type="text"
+                value="{{ field.value }}"
+                autocomplete="off"
+                spellcheck="false"
+              >
+            </label>
+            <div class="note">{{ field.help }}</div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="toolbar ha-actions">
+        <div class="note" id="ha_live_data_note">Persist the Home Assistant source settings without editing code by hand.</div>
+        <button id="ha_live_data_button" type="button">Save HA source settings</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Session controls</h2>
+          <div class="panel-note">Transport changes are persisted now, so the next restart comes back in the same mode and compatibility profile.</div>
+        </div>
+      </div>
+
+      <div class="controls-stack">
+        <div class="control-box">
+          <div class="subheading">Transport</div>
+          <div class="toolbar">
+            <label>
+              Mode
+              <select id="transport_mode_select"></select>
+            </label>
+            <button id="transport_mode_button" type="button">Apply</button>
+          </div>
+          <div class="note" id="transport_mode_note">Switch between native Modbus TCP and RTU-over-TCP framing. Changing mode closes the current client connection.</div>
+        </div>
+
+        <div class="control-box">
+          <div class="subheading">Quick profiles</div>
+          <div class="quick-actions">
+            <button id="quick_profile_rtu" class="secondary" type="button">DR gateway / RTU</button>
+            <button id="quick_profile_tcp" class="secondary" type="button">Direct Modbus TCP</button>
+          </div>
+          <div class="note">Use the quick presets when switching between your working DR gateway setup and direct Modbus TCP experiments.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Compatibility tuning</h2>
+          <div class="panel-note">Keep these advanced settings isolated here unless the wallbox needs a different profile, word order, or register offset behavior.</div>
+        </div>
+      </div>
+
+      <div class="controls-stack">
+        <div class="control-box">
+          <div class="toolbar">
+            <label>
+              Profile
+              <select id="compatibility_profile_select"></select>
+            </label>
+            <button id="compatibility_profile_button" type="button">Apply</button>
+          </div>
+        </div>
+
+        <div class="segmented">
+          <div class="control-box">
+            <label>
+              Float word order
+              <select id="float_word_order_select"></select>
+            </label>
+            <button id="float_word_order_button" type="button">Apply</button>
+          </div>
+          <div class="control-box">
+            <label>
+              Register alias mode
+              <select id="register_alias_mode_select"></select>
+            </label>
+            <button id="register_alias_mode_button" type="button">Apply</button>
+          </div>
+        </div>
+
+        <div class="note" id="compatibility_note">Use these to test PRO380 word-order and 0-based or 1-based address compatibility.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-overview-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Current session state</h2>
+          <div class="panel-note">A compact status view lets you verify the active session before changing transport behavior.</div>
+        </div>
+      </div>
+
+      <div class="kv-grid">
+        <div class="kv"><div class="small">TCP connected</div><div class="value" id="tcp_connected">-</div></div>
+        <div class="kv"><div class="small">Reachability</div><div class="value" id="transport_reachability">-</div></div>
+        <div class="kv"><div class="small">Last connect</div><div class="value" id="last_connect">-</div></div>
+        <div class="kv"><div class="small">Last disconnect</div><div class="value" id="last_disconnect">-</div></div>
+        <div class="kv"><div class="small">Word order</div><div class="value" id="float_word_order">-</div></div>
+        <div class="kv"><div class="small">Alias mode</div><div class="value" id="register_alias_mode">-</div></div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Recent Modbus request</h2>
+          <div class="panel-note">Use the last decoded request to confirm register addressing while testing compatibility changes.</div>
+        </div>
+      </div>
+
+      <div class="kv-grid">
+        <div class="kv"><div class="small">Function code</div><div class="value" id="last_fc">-</div></div>
+        <div class="kv"><div class="small">Start addr / qty</div><div class="value" id="last_addr_qty">-</div></div>
+        <div class="kv"><div class="small">Transaction ID</div><div class="value" id="last_transaction_id">-</div></div>
+        <div class="kv"><div class="small">CRC recv / exp</div><div class="value" id="last_crc">-</div></div>
+        <div class="kv"><div class="small">Buffer len</div><div class="value" id="last_buffer_len">-</div></div>
+        <div class="kv"><div class="small">Last exception</div><div class="value" id="last_exception">-</div></div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

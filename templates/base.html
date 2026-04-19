@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>{% block title %}BMW Meter Emulator{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body data-page="{{ active_page }}">
+  <div class="page-shell">
+    <header class="topbar card">
+      <div class="topbar-brand">
+        <div class="eyebrow">BMW Wallbox Telemetry Bridge</div>
+        <div class="topbar-title">Meter Emulator</div>
+      </div>
+
+      <button class="menu-toggle secondary" id="menu_toggle" type="button" aria-expanded="false" aria-controls="site_nav_panel">
+        Menu
+      </button>
+
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="{{ url_for('index') }}" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
+        <a href="{{ url_for('settings') }}" class="nav-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
+      </nav>
+    </header>
+
+    <div class="menu-panel card" id="site_nav_panel" hidden>
+      <a href="{{ url_for('index') }}" class="menu-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
+      <a href="{{ url_for('settings') }}" class="menu-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
+    </div>
+
+    <main class="wrap">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

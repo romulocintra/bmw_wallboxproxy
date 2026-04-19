@@ -1,0 +1,6 @@
+configuration:
+  ha_token:
+    name: Home Assistant long-lived access token
+    description: Token used to read Home Assistant entity states. URL and entity mapping are configured in the add-on web UI.
+network:
+  502/TCP: Modbus TCP listener for the BMW wallbox or TCP serial gateway

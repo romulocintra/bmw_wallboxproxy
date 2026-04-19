@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | BMW Meter Emulator{% endblock %}
+
+{% block content %}
+  <section class="card hero hero-dashboard">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <div class="eyebrow">Live telemetry</div>
+        <h1>Control room dashboard</h1>
+        <p>Operational values stay front and center, while protocol diagnostics remain readable without letting controls crowd the monitoring view.</p>
+      </div>
+      <div class="refresh-box">
+        <div class="refresh-row">
+          <div>
+            <div class="tiny-label">Refresh</div>
+            <div class="refresh-value" id="refresh_state">Live every 1s</div>
+          </div>
+          <button id="refresh_toggle_button" class="secondary" type="button">Pause</button>
+        </div>
+        <div class="refresh-row">
+          <div>
+            <div class="tiny-label">Last UI update</div>
+            <div class="refresh-value" id="last_refresh">-</div>
+          </div>
+          <div>
+            <div class="tiny-label">Client session</div>
+            <div class="refresh-value" id="session_snapshot">Waiting</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-strip">
+      <div class="strip-card">
+        <div class="strip-title">Connection</div>
+        <div class="strip-value" id="hero_connection_text">Idle</div>
+        <div class="badge-row"><div class="badge neutral" id="hero_connection_badge"><span class="badge-dot"></span><span>Waiting for client</span></div></div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-title">Transport</div>
+        <div class="strip-value" id="hero_transport_mode">-</div>
+        <div class="badge-row"><div class="badge neutral" id="hero_profile_badge"><span class="badge-dot"></span><span>Profile: -</span></div></div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-title">Reachability</div>
+        <div class="strip-value" id="hero_reachability_text">-</div>
+        <div class="badge-row"><div class="badge neutral" id="hero_reachability_badge"><span class="badge-dot"></span><span>Listening</span></div></div>
+      </div>
+      <div class="strip-card">
+        <div class="strip-title">Last request</div>
+        <div class="strip-value" id="hero_last_request">-</div>
+        <div class="note">Function code, start address, and requested register count from the latest decoded poll.</div>
+      </div>
+    </div>
+
+    <div class="quick-stats">
+      <div class="stat-card"><div class="strip-title">Power now</div><div class="strip-value" id="p_total">-</div></div>
+      <div class="stat-card"><div class="strip-title">Frequency</div><div class="strip-value" id="freq">-</div></div>
+      <div class="stat-card"><div class="strip-title">Import energy</div><div class="strip-value" id="eimp">-</div></div>
+      <div class="stat-card"><div class="strip-title">Export energy</div><div class="strip-value" id="eexp">-</div></div>
+    </div>
+  </section>
+
+  <section class="section-callout card">
+    <div>
+      <div class="subheading">Settings moved out</div>
+      <div class="callout-title">Operational tuning now lives on its own page.</div>
+      <div class="panel-note">Use the menu to open settings when you want to switch transport mode or compatibility behavior without giving up dashboard space.</div>
+    </div>
+    <a href="{{ url_for('settings') }}" class="button-link">Open settings</a>
+  </section>
+
+  <section class="main-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Live electrical data</h2>
+          <div class="panel-note">Instant meter snapshot served to the wallbox. The phase cards stay compact so the important values remain readable on mobile.</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric"><div class="small">Voltage L1</div><div class="val" id="u1">-</div></div>
+        <div class="metric"><div class="small">Voltage L2</div><div class="val" id="u2">-</div></div>
+        <div class="metric"><div class="small">Voltage L3</div><div class="val" id="u3">-</div></div>
+        <div class="metric"><div class="small">Current L1</div><div class="val" id="i1">-</div></div>
+        <div class="metric"><div class="small">Current L2</div><div class="val" id="i2">-</div></div>
+        <div class="metric"><div class="small">Current L3</div><div class="val" id="i3">-</div></div>
+        <div class="metric wide"><div class="small">Phase power</div><div class="val" id="p_phases">-</div></div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Protocol status</h2>
+          <div class="panel-note">Operational state is grouped into session, frame health, and diagnostics so a transport mismatch is obvious immediately.</div>
+        </div>
+      </div>
+
+      <div class="status-groups">
+        <div>
+          <div class="subheading">Session</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="small">TCP connected</div><div class="value" id="tcp_connected">-</div></div>
+            <div class="kv"><div class="small">Transport mode</div><div class="value" id="transport_mode">-</div></div>
+            <div class="kv"><div class="small">Compatibility profile</div><div class="value" id="compatibility_profile">-</div></div>
+            <div class="kv"><div class="small">Reachability</div><div class="value" id="transport_reachability">-</div></div>
+            <div class="kv"><div class="small">Last connect</div><div class="value" id="last_connect">-</div></div>
+            <div class="kv"><div class="small">Last disconnect</div><div class="value" id="last_disconnect">-</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subheading">Frame health</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="small">RX frames</div><div class="value" id="rx_frames">-</div></div>
+            <div class="kv"><div class="small">TX frames</div><div class="value" id="tx_frames">-</div></div>
+            <div class="kv"><div class="small">Bytes RX / TX</div><div class="value" id="bytes_flow">-</div></div>
+            <div class="kv"><div class="small">CRC fail</div><div class="value" id="crc_fail">-</div></div>
+            <div class="kv"><div class="small">Wrong slave</div><div class="value" id="wrong_slave">-</div></div>
+            <div class="kv"><div class="small">Unsupported FC</div><div class="value" id="unsupported_fc">-</div></div>
+            <div class="kv"><div class="small">Bad quantity</div><div class="value" id="illegal_quantity">-</div></div>
+            <div class="kv"><div class="small">Short frames</div><div class="value" id="short_frames">-</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subheading">Last decoded request</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="small">Function code</div><div class="value" id="last_fc">-</div></div>
+            <div class="kv"><div class="small">Start addr / qty</div><div class="value" id="last_addr_qty">-</div></div>
+            <div class="kv"><div class="small">Word order</div><div class="value" id="float_word_order">-</div></div>
+            <div class="kv"><div class="small">Alias mode</div><div class="value" id="register_alias_mode">-</div></div>
+            <div class="kv"><div class="small">CRC recv / exp</div><div class="value" id="last_crc">-</div></div>
+            <div class="kv"><div class="small">Transaction ID</div><div class="value" id="last_transaction_id">-</div></div>
+            <div class="kv"><div class="small">Last exception</div><div class="value" id="last_exception">-</div></div>
+            <div class="kv"><div class="small">Buffer len</div><div class="value" id="last_buffer_len">-</div></div>
+            <div class="kv"><div class="small">Accept errors</div><div class="value" id="tcp_accept_errors">-</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="diag-grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Modbus activity</h2>
+          <div class="panel-note">Decoded requests are promoted to the top. The raw protocol log stays available underneath when you need the internal trace.</div>
+        </div>
+      </div>
+
+      <div class="log-stack">
+        <div>
+          <div class="log-header-row">
+            <div class="log-label">Decoded requests</div>
+            <div class="log-legend">
+              <span class="legend-chip legend-request">Request</span>
+              <span class="legend-chip legend-response">Response</span>
+              <span class="legend-chip legend-error">Issue</span>
+            </div>
+          </div>
+          <div id="modbus_decoded_log" class="log-feed decoded-feed"></div>
+        </div>
+        <details>
+          <summary>Raw Modbus trace</summary>
+          <div id="modbus_log" class="log-feed"></div>
+        </details>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <div class="panel-head">
+        <div>
+          <h2>Network diagnostics</h2>
+          <div class="panel-note">Connection-level events stay visible. The raw TCP packet dump remains hidden unless you are debugging framing by hand.</div>
+        </div>
+      </div>
+
+      <div class="log-stack">
+        <div>
+          <div class="log-label">Network log</div>
+          <pre id="net_log"></pre>
+        </div>
+        <details>
+          <summary>TCP raw packets <span class="hidden-mobile">(advanced)</span></summary>
+          <pre id="tcp_raw_log"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+{% endblock %}
