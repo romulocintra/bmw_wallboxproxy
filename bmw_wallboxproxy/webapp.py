@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from flask import Flask, jsonify, render_template, request, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from config import (
@@ -40,12 +38,6 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 
-def _static_asset_url(filename: str) -> str:
-    asset_path = Path(app.static_folder) / filename
-    version = int(asset_path.stat().st_mtime) if asset_path.exists() else 0
-    return url_for("static", filename=filename, v=version)
-
-
 def _ingress_base_path() -> str:
     base_path = request.headers.get("X-Ingress-Path") or request.script_root or "/"
     if not base_path.startswith("/"):
@@ -65,8 +57,8 @@ def inject_template_paths():
         "ingress_base_path": _ingress_base_path(),
         "dashboard_path": url_for("index"),
         "settings_path": url_for("settings"),
-        "static_css_path": _static_asset_url("app.css"),
-        "static_js_path": _static_asset_url("app.js"),
+        "static_css_path": url_for("static", filename="app.css"),
+        "static_js_path": url_for("static", filename="app.js"),
         "api_state_path": url_for("api_state"),
         "api_transport_mode_path": url_for("api_transport_mode"),
         "api_float_word_order_path": url_for("api_float_word_order"),
