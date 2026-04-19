@@ -160,6 +160,8 @@ def _is_valid_url(value: str) -> bool:
 
 HA_URL = _env_str("HA_URL", "https://192.168.1.220:8123")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
+SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+HA_USE_SUPERVISOR = _env_bool("HA_USE_SUPERVISOR", bool(SUPERVISOR_TOKEN))
 
 MODBUS_LISTEN_HOST = os.environ.get("MODBUS_LISTEN_HOST", "0.0.0.0")
 MODBUS_LISTEN_PORT = _env_int("MODBUS_LISTEN_PORT", 502)
@@ -202,11 +204,33 @@ ENTITIES = _load_entity_settings()
 
 
 def get_ha_url() -> str:
+    if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
+        return "http://supervisor/core/api"
     return HA_URL
 
 
 def get_ha_verify_tls() -> bool:
+    if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
+        return False
     return HA_VERIFY_TLS
+
+
+def get_ha_auth_token() -> str:
+    if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
+        return SUPERVISOR_TOKEN
+    return HA_TOKEN
+
+
+def get_ha_auth_mode() -> str:
+    if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
+        return "supervisor"
+    if HA_TOKEN:
+        return "manual_token"
+    return "none"
+
+
+def has_ha_auth() -> bool:
+    return bool(get_ha_auth_token())
 
 
 def get_runtime_settings_store() -> str:

@@ -9,7 +9,6 @@ import signal
 from pathlib import Path
 
 from config import (
-    HA_TOKEN,
     MODBUS_LISTEN_HOST,
     MODBUS_LISTEN_PORT,
     WEBAPP_HOST,
@@ -17,6 +16,8 @@ from config import (
     WEBAPP_SSL_CERT_FILE,
     WEBAPP_SSL_KEY_FILE,
     WEBAPP_SSL_MODE,
+    get_ha_auth_mode,
+    has_ha_auth,
 )
 from ha_client import ha_poller
 from dr_client import force_disconnect_dr, tcp_server_loop
@@ -81,7 +82,7 @@ def _low_port_requires_privilege(port: int) -> bool:
 
 
 def _validate_startup() -> None:
-    if HA_TOKEN:
+    if has_ha_auth():
         if _low_port_requires_privilege(MODBUS_LISTEN_PORT):
             message = (
                 f"Modbus listener port {MODBUS_LISTEN_PORT} is privileged on Linux/WSL. "
@@ -101,8 +102,9 @@ def _validate_startup() -> None:
         return
 
     message = (
-        "HA_TOKEN is not set. Start the app from WSL with 'export HA_TOKEN=...' or create a .env file "
-        "next to app.py containing HA_TOKEN=..."
+        "No Home Assistant authentication is configured. In Home Assistant add-on mode, enable the internal "
+        "API proxy and use SUPERVISOR_TOKEN automatically. In standalone mode, set HA_TOKEN in the environment "
+        "or in the .env file next to app.py."
     )
     log_net(f"Startup error: {message}")
     print(message, file=sys.stderr)
@@ -180,6 +182,7 @@ def _build_web_ssl_context():
 def main():
     _configure_runtime_logging()
     _validate_startup()
+    log_net(f"Home Assistant auth mode: {get_ha_auth_mode()}")
     stop_event.clear()
     _install_shutdown_hooks()
     web_ssl_context = _build_web_ssl_context()

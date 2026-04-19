@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy
-version: "0.1.5"
+version: "0.1.6"
 slug: bmw_wallboxproxy
 description: Emulate a PRO380-style Modbus meter for a BMW wallbox using Home Assistant sensor data.
 arch:
@@ -14,6 +14,7 @@ boot: auto
 stage: experimental
 ingress: true
 ingress_port: 8099
+homeassistant_api: true
 panel_title: BMW Wallbox 
 panel_icon: mdi:ev-station
 ports:
@@ -23,6 +24,6 @@ ports_description:
 options:
   ha_token: ""
 schema:
-  ha_token: password
+  ha_token: "password?"
 watchdog: http://[HOST]:[PORT:8099]/api/state
 timeout: 20

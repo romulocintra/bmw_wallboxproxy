@@ -14,8 +14,9 @@ export HA_TOKEN="$(bashio::config 'ha_token')"
 
 if [ ! -f "${APP_ENV_FILE}" ]; then
   cat > "${APP_ENV_FILE}" <<'EOF'
-HA_URL=http://homeassistant.local:8123
-HA_VERIFY_TLS=true
+HA_URL=http://supervisor/core/api
+HA_VERIFY_TLS=false
+HA_USE_SUPERVISOR=true
 MODBUS_TRANSPORT_MODE=rtu_over_tcp
 MODBUS_FLOAT_WORD_ORDER=abcd
 MODBUS_REGISTER_ALIAS_MODE=exact

@@ -9,7 +9,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def read_ha_state(entity_id: str):
-    headers = {"Authorization": f"Bearer {config.HA_TOKEN}"}
+    auth_token = config.get_ha_auth_token()
+    headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
     url = f"{config.get_ha_url()}/api/states/{entity_id}"
     try:
         r = requests.get(url, headers=headers, timeout=5, verify=config.get_ha_verify_tls())
@@ -27,12 +28,15 @@ def read_ha_state(entity_id: str):
 
 def ha_poller() -> None:
     log_net(
-        f"HA poller starting url={config.get_ha_url()} tls_verify={config.get_ha_verify_tls()} token_present={'yes' if bool(config.HA_TOKEN) else 'no'}"
+        "HA poller starting "
+        f"url={config.get_ha_url()} "
+        f"tls_verify={config.get_ha_verify_tls()} "
+        f"auth_mode={config.get_ha_auth_mode()}"
     )
 
-    if not config.HA_TOKEN:
-        log_net("HA startup error: HA_TOKEN environment variable is not set")
-        raise RuntimeError("HA_TOKEN environment variable is not set.")
+    if not config.has_ha_auth():
+        log_net("HA startup error: no Home Assistant authentication is available")
+        raise RuntimeError("No Home Assistant authentication is available.")
 
     while not stop_event.is_set():
         updates = {}
