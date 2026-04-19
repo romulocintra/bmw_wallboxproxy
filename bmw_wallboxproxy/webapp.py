@@ -1,4 +1,6 @@
-from flask import Flask, jsonify, render_template, request
+from pathlib import Path
+
+from flask import Flask, jsonify, render_template, request, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from config import (
     get_ha_entity_fields,
@@ -38,9 +40,10 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 
-@app.route("/static/<path:filename>")
-def addon_static(filename: str):
-    return app.send_static_file(filename)
+def _static_asset_url(filename: str) -> str:
+    asset_path = Path(app.static_folder) / filename
+    version = int(asset_path.stat().st_mtime) if asset_path.exists() else 0
+    return url_for("static", filename=filename, v=version)
 
 
 def _ingress_base_path() -> str:
@@ -60,10 +63,16 @@ def _relative_path(path: str) -> str:
 def inject_template_paths():
     return {
         "ingress_base_path": _ingress_base_path(),
-        "dashboard_path": "./",
-        "settings_path": "./settings",
-        "static_css_path": "./static/app.css",
-        "static_js_path": "./static/app.js",
+        "dashboard_path": url_for("index"),
+        "settings_path": url_for("settings"),
+        "static_css_path": _static_asset_url("app.css"),
+        "static_js_path": _static_asset_url("app.js"),
+        "api_state_path": url_for("api_state"),
+        "api_transport_mode_path": url_for("api_transport_mode"),
+        "api_float_word_order_path": url_for("api_float_word_order"),
+        "api_register_alias_mode_path": url_for("api_register_alias_mode"),
+        "api_compatibility_profile_path": url_for("api_compatibility_profile"),
+        "api_ha_live_data_path": url_for("api_ha_live_data"),
     }
 
 

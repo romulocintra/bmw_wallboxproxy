@@ -68,9 +68,13 @@ function byId(id) {
 }
 
 function appEndpoint(path) {
+  const paths = window.APP_PATHS || {};
+  if (Object.prototype.hasOwnProperty.call(paths, path)) {
+    return paths[path];
+  }
+
   const relativePath = String(path).replace(/^\//, '');
-  const basePath = `${window.location.pathname.replace(/\/?$/, '/')}`;
-  return `${basePath}${relativePath}`;
+  return `./${relativePath}`;
 }
 
 function setText(id, value) {
@@ -574,7 +578,7 @@ async function refreshData() {
     return;
   }
 
-  const response = await fetch(appEndpoint('api/state'));
+  const response = await fetch(appEndpoint('apiState'));
   const data = await response.json();
   const values = data.values;
   const stats = data.stats;
@@ -658,7 +662,7 @@ async function applyTransportMode() {
   note.textContent = 'Saving transport mode...';
 
   try {
-    const response = await fetch(appEndpoint('api/settings/transport-mode'), {
+    const response = await fetch(appEndpoint('apiTransportMode'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: select.value })
@@ -726,7 +730,7 @@ async function applyCompatibilityProfile(profileName) {
   note.textContent = `Applying ${profileName}...`;
 
   try {
-    const response = await fetch(appEndpoint('api/settings/compatibility-profile'), {
+    const response = await fetch(appEndpoint('apiCompatibilityProfile'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profileName })
@@ -757,7 +761,7 @@ async function applyHaLiveDataSettings() {
   note.textContent = 'Saving Home Assistant settings...';
 
   try {
-    const response = await fetch(appEndpoint('api/settings/ha-live-data'), {
+    const response = await fetch(appEndpoint('apiHaLiveData'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -850,7 +854,7 @@ function initializeControls() {
     applyCompatibilitySetting({
       selectId: 'compatibility_profile_select',
       noteId: 'compatibility_note',
-      endpoint: 'api/settings/compatibility-profile',
+      endpoint: 'apiCompatibilityProfile',
       bodyKey: 'profile',
       dirtyFlag: 'compatibilityProfileDirty',
       applyingFlag: 'compatibilityProfileApplying',
@@ -864,7 +868,7 @@ function initializeControls() {
     applyCompatibilitySetting({
       selectId: 'float_word_order_select',
       noteId: 'compatibility_note',
-      endpoint: 'api/settings/float-word-order',
+      endpoint: 'apiFloatWordOrder',
       bodyKey: 'word_order',
       dirtyFlag: 'floatWordOrderDirty',
       applyingFlag: 'floatWordOrderApplying',
@@ -878,7 +882,7 @@ function initializeControls() {
     applyCompatibilitySetting({
       selectId: 'register_alias_mode_select',
       noteId: 'compatibility_note',
-      endpoint: 'api/settings/register-alias-mode',
+      endpoint: 'apiRegisterAliasMode',
       bodyKey: 'alias_mode',
       dirtyFlag: 'registerAliasModeDirty',
       applyingFlag: 'registerAliasModeApplying',
