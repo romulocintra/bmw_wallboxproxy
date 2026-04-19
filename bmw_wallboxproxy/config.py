@@ -209,6 +209,13 @@ def get_ha_url() -> str:
     return HA_URL
 
 
+def get_ha_api_base_url() -> str:
+    base_url = get_ha_url().rstrip("/")
+    if base_url.endswith("/api"):
+        return base_url
+    return f"{base_url}/api"
+
+
 def get_ha_verify_tls() -> bool:
     if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
         return False

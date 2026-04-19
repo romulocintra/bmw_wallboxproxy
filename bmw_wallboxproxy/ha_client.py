@@ -11,7 +11,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def read_ha_state(entity_id: str):
     auth_token = config.get_ha_auth_token()
     headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
-    url = f"{config.get_ha_url()}/api/states/{entity_id}"
+    url = f"{config.get_ha_api_base_url()}/states/{entity_id}"
     try:
         r = requests.get(url, headers=headers, timeout=5, verify=config.get_ha_verify_tls())
         r.raise_for_status()
@@ -29,7 +29,7 @@ def read_ha_state(entity_id: str):
 def ha_poller() -> None:
     log_net(
         "HA poller starting "
-        f"url={config.get_ha_url()} "
+        f"url={config.get_ha_api_base_url()} "
         f"tls_verify={config.get_ha_verify_tls()} "
         f"auth_mode={config.get_ha_auth_mode()}"
     )
