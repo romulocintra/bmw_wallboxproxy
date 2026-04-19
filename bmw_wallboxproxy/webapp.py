@@ -32,6 +32,7 @@ from state import (
     stats_lock,
     tcp_raw_log,
 )
+from state import log_net
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
@@ -205,6 +206,15 @@ def api_ha_live_data():
         changed = update_ha_live_data_settings(ha_url, verify_tls, entities)
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
+    except OSError as exc:
+        log_net(f"Failed to persist HA settings to {get_runtime_settings_store()}: {exc}")
+        return jsonify({"ok": False, "error": f"failed to persist settings: {exc}"}), 500
+
+    saved_entities = sum(1 for entity_id in get_ha_entities().values() if entity_id)
+    log_net(
+        f"Persisted HA settings to {get_runtime_settings_store()} "
+        f"auth_mode={get_ha_auth_mode()} entities={saved_entities}"
+    )
 
     return jsonify(
         {
@@ -213,5 +223,7 @@ def api_ha_live_data():
             "ha_url": get_ha_url(),
             "ha_verify_tls": get_ha_verify_tls(),
             "ha_entities": get_ha_entities(),
+            "settings_store_path": get_runtime_settings_store(),
+            "saved_entity_count": saved_entities,
         }
     )

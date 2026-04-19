@@ -22,6 +22,22 @@ def _load_dotenv() -> None:
         os.environ.setdefault(key, value)
 
 
+def _read_env_file_values() -> dict[str, str]:
+    env_path = ENV_PATH
+    if not env_path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
     if raw is None:
@@ -206,7 +222,7 @@ ENTITIES = _load_entity_settings()
 def get_ha_url() -> str:
     if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
         return "http://supervisor/core/api"
-    return HA_URL
+    return _read_env_file_values().get("HA_URL", HA_URL)
 
 
 def get_ha_api_base_url() -> str:
@@ -219,7 +235,10 @@ def get_ha_api_base_url() -> str:
 def get_ha_verify_tls() -> bool:
     if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
         return False
-    return HA_VERIFY_TLS
+    raw_value = _read_env_file_values().get("HA_VERIFY_TLS")
+    if raw_value is None:
+        return HA_VERIFY_TLS
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def get_ha_auth_token() -> str:
@@ -249,7 +268,11 @@ def get_runtime_settings_store() -> str:
 
 
 def get_ha_entities() -> dict[str, str]:
-    return ENTITIES.copy()
+    env_values = _read_env_file_values()
+    return {
+        key: env_values.get(_entity_env_name(key), ENTITIES.get(key, ""))
+        for key, _label, _help in ENTITY_FIELDS
+    }
 
 
 def get_ha_entity_fields() -> list[dict[str, str]]:

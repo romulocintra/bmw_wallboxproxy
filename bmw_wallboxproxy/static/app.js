@@ -770,8 +770,8 @@ async function applyHaLiveDataSettings() {
 
     haLiveDataDirty = false;
     note.textContent = payload.changed
-      ? 'Home Assistant settings saved and applied to the live poller.'
-      : 'Home Assistant settings were already up to date.';
+      ? `Home Assistant settings saved to ${payload.settings_store_path} (${payload.saved_entity_count} entity fields set).`
+      : `Home Assistant settings were already up to date in ${payload.settings_store_path}.`;
     await refreshData();
   } catch (error) {
     note.textContent = `HA settings failed: ${error.message}`;
