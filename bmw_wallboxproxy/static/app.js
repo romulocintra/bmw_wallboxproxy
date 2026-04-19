@@ -1,21 +1,4 @@
-var transportModeOptions = [];
-var transportModeDirty = false;
-var transportModeApplying = false;
-var floatWordOrderOptions = [];
-var floatWordOrderDirty = false;
-var floatWordOrderApplying = false;
-var registerAliasModeOptions = [];
-var registerAliasModeDirty = false;
-var registerAliasModeApplying = false;
-var compatibilityProfileOptions = [];
-var compatibilityProfileDirty = false;
-var compatibilityProfileApplying = false;
-var haLiveDataDirty = false;
-var haLiveDataApplying = false;
 var autoRefreshEnabled = true;
-var haLiveDataAutosaveTimer = null;
-
-const HA_AUTOSAVE_DELAY_MS = 900;
 
 const REGISTER_GROUPS = [
   { start: 0x5000, end: 0x5001, label: 'Voltage' },
@@ -88,13 +71,6 @@ function setHtml(id, value) {
   const element = byId(id);
   if (element) {
     element.innerHTML = value;
-  }
-}
-
-function bindIfPresent(id, eventName, handler) {
-  const element = byId(id);
-  if (element) {
-    element.addEventListener(eventName, handler);
   }
 }
 
@@ -484,90 +460,6 @@ function formatSessionSnapshot(stats) {
   return 'Waiting';
 }
 
-function updateTransportModeSelect(settings, stats) {
-  const select = byId('transport_mode_select');
-  if (!select) {
-    return;
-  }
-
-  const current = settings?.transport_mode || stats.transport_mode;
-  const options = settings?.transport_mode_options || transportModeOptions;
-
-  if (options.length && JSON.stringify(options) !== JSON.stringify(transportModeOptions)) {
-    transportModeOptions = options.slice();
-    select.innerHTML = '';
-    for (const mode of transportModeOptions) {
-      const option = document.createElement('option');
-      option.value = mode;
-      option.textContent = mode;
-      select.appendChild(option);
-    }
-  }
-
-  if (current && !transportModeDirty && !transportModeApplying) {
-    select.value = current;
-  }
-}
-
-function updateSettingSelect(selectId, settingsKey, optionsKey, optionsStoreName, dirtyFlag, applyingFlag, settings, stats) {
-  const select = byId(selectId);
-  if (!select) {
-    return;
-  }
-
-  const current = settings?.[settingsKey] || stats[settingsKey];
-  const options = settings?.[optionsKey] || window[optionsStoreName];
-
-  if (options.length && JSON.stringify(options) !== JSON.stringify(window[optionsStoreName])) {
-    window[optionsStoreName] = options.slice();
-    select.innerHTML = '';
-    for (const value of window[optionsStoreName]) {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = value;
-      select.appendChild(option);
-    }
-  }
-
-  if (current && !window[dirtyFlag] && !window[applyingFlag]) {
-    select.value = current;
-  }
-}
-
-function updateHaLiveDataSettings(settings) {
-  const urlInput = byId('ha_url_input');
-  const verifyTlsSelect = byId('ha_verify_tls_select');
-  if (!settings) {
-    return;
-  }
-
-  if (urlInput && verifyTlsSelect && !haLiveDataDirty && !haLiveDataApplying) {
-    urlInput.value = settings.ha_url || '';
-    verifyTlsSelect.value = settings.ha_verify_tls ? 'true' : 'false';
-  }
-
-  if (!haLiveDataDirty && !haLiveDataApplying) {
-    const entities = settings.ha_entities || {};
-    document.querySelectorAll('.ha-entity-input').forEach((input) => {
-      const key = input.dataset.entityKey;
-      if (key && Object.prototype.hasOwnProperty.call(entities, key)) {
-        input.value = entities[key];
-      }
-    });
-  }
-}
-
-function collectHaEntitySettings() {
-  const entities = {};
-  document.querySelectorAll('.ha-entity-input').forEach((input) => {
-    const key = input.dataset.entityKey;
-    if (key) {
-      entities[key] = input.value.trim();
-    }
-  });
-  return entities;
-}
-
 function updateRefreshWidgets() {
   setText('refresh_state', autoRefreshEnabled ? 'Live every 1s' : 'Paused');
   setText('refresh_toggle_button', autoRefreshEnabled ? 'Pause' : 'Resume');
@@ -582,12 +474,6 @@ async function refreshData() {
   const data = await response.json();
   const values = data.values;
   const stats = data.stats;
-
-  updateTransportModeSelect(data.settings, stats);
-  updateSettingSelect('compatibility_profile_select', 'compatibility_profile', 'compatibility_profile_options', 'compatibilityProfileOptions', 'compatibilityProfileDirty', 'compatibilityProfileApplying', data.settings, stats);
-  updateSettingSelect('float_word_order_select', 'float_word_order', 'float_word_order_options', 'floatWordOrderOptions', 'floatWordOrderDirty', 'floatWordOrderApplying', data.settings, stats);
-  updateSettingSelect('register_alias_mode_select', 'register_alias_mode', 'register_alias_mode_options', 'registerAliasModeOptions', 'registerAliasModeDirty', 'registerAliasModeApplying', data.settings, stats);
-  updateHaLiveDataSettings(data.settings);
 
   setText('u1', `${values.u1.toFixed(1)} V`);
   setText('u2', `${values.u2.toFixed(1)} V`);
@@ -647,262 +533,19 @@ async function refreshData() {
   setText('tcp_raw_log', data.tcp_raw_log.join('\n'));
 }
 
-async function applyTransportMode() {
-  const select = byId('transport_mode_select');
-  const note = byId('transport_mode_note');
-  if (!select || !note) {
-    return;
-  }
-
-  if (transportModeApplying) {
-    return;
-  }
-
-  transportModeApplying = true;
-  note.textContent = 'Saving transport mode...';
-
-  try {
-    const response = await fetch(appEndpoint('apiTransportMode'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: select.value })
-    });
-    const payload = await response.json();
-
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || 'failed to update transport mode');
-    }
-
-    transportModeDirty = false;
-    note.textContent = payload.changed
-      ? `Transport mode saved as ${payload.transport_mode}. Waiting for TCP client reconnect.`
-      : `Transport mode already set to ${payload.transport_mode}.`;
-    await refreshData();
-  } catch (error) {
-    note.textContent = `Mode change failed: ${error.message}`;
-  } finally {
-    transportModeApplying = false;
-  }
-}
-
-async function applyCompatibilitySetting(config) {
-  const select = byId(config.selectId);
-  const note = byId(config.noteId);
-  if (!select || !note) {
-    return;
-  }
-
-  if (window[config.applyingFlag]) {
-    return;
-  }
-
-  window[config.applyingFlag] = true;
-  note.textContent = `Saving ${config.label}...`;
-
-  try {
-    const response = await fetch(appEndpoint(config.endpoint), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [config.bodyKey]: select.value })
-    });
-    const payload = await response.json();
-
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || `failed to update ${config.label}`);
-    }
-
-    window[config.dirtyFlag] = false;
-    note.textContent = payload.changed ? `${config.label} set to ${payload[config.responseKey]}.` : `${config.label} already set to ${payload[config.responseKey]}.`;
-    await refreshData();
-  } catch (error) {
-    note.textContent = `${config.label} change failed: ${error.message}`;
-  } finally {
-    window[config.applyingFlag] = false;
-  }
-}
-
-async function applyCompatibilityProfile(profileName) {
-  const note = byId('compatibility_note');
-  if (!note) {
-    return;
-  }
-
-  note.textContent = `Applying ${profileName}...`;
-
-  try {
-    const response = await fetch(appEndpoint('apiCompatibilityProfile'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile: profileName })
-    });
-    const payload = await response.json();
-
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || 'failed to update compatibility profile');
-    }
-
-    compatibilityProfileDirty = false;
-    note.textContent = payload.changed ? `Compatibility profile set to ${payload.compatibility_profile}.` : `Compatibility profile already set to ${payload.compatibility_profile}.`;
-    await refreshData();
-  } catch (error) {
-    note.textContent = `Compatibility profile change failed: ${error.message}`;
-  }
-}
-
-async function applyHaLiveDataSettings() {
-  const note = byId('ha_live_data_note');
-  const urlInput = byId('ha_url_input');
-  const verifyTlsSelect = byId('ha_verify_tls_select');
-  if (!note || haLiveDataApplying) {
-    return;
-  }
-
-  haLiveDataApplying = true;
-  note.textContent = 'Saving Home Assistant settings...';
-
-  try {
-    const response = await fetch(appEndpoint('apiHaLiveData'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ha_url: urlInput ? urlInput.value.trim() : '',
-        ha_verify_tls: verifyTlsSelect ? verifyTlsSelect.value === 'true' : false,
-        entities: collectHaEntitySettings()
-      })
-    });
-    const payload = await response.json();
-
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || 'failed to save Home Assistant source settings');
-    }
-
-    haLiveDataDirty = false;
-    note.textContent = payload.changed
-      ? `Home Assistant settings saved to ${payload.settings_store_path} (${payload.saved_entity_count} entity fields set).`
-      : `Home Assistant settings were already up to date in ${payload.settings_store_path}.`;
-    await refreshData();
-  } catch (error) {
-    note.textContent = `HA settings failed: ${error.message}`;
-  } finally {
-    haLiveDataApplying = false;
-  }
-}
-
-function scheduleHaLiveDataAutosave() {
-  haLiveDataDirty = true;
-  const note = byId('ha_live_data_note');
-  if (note && !haLiveDataApplying) {
-    note.textContent = 'Changes detected. Autosaving...';
-  }
-
-  if (haLiveDataAutosaveTimer) {
-    clearTimeout(haLiveDataAutosaveTimer);
-  }
-
-  haLiveDataAutosaveTimer = setTimeout(() => {
-    haLiveDataAutosaveTimer = null;
-    applyHaLiveDataSettings();
-  }, HA_AUTOSAVE_DELAY_MS);
-}
-
-function initializeMenu() {
-  const toggle = byId('menu_toggle');
-  const panel = byId('site_nav_panel');
-  if (!toggle || !panel) {
-    return;
-  }
-
-  bindIfPresent('menu_toggle', 'click', () => {
-    const open = !panel.classList.contains('open');
-    panel.hidden = !open;
-    panel.classList.toggle('open', open);
-    toggle.setAttribute('aria-expanded', String(open));
-  });
-
-  window.addEventListener('resize', () => {
-    if (window.innerWidth > 760) {
-      panel.hidden = true;
-      panel.classList.remove('open');
-      toggle.setAttribute('aria-expanded', 'false');
-    }
-  });
-}
-
 function initializeControls() {
-  bindIfPresent('ha_url_input', 'input', () => {
-    scheduleHaLiveDataAutosave();
-  });
-  bindIfPresent('ha_verify_tls_select', 'change', () => {
-    scheduleHaLiveDataAutosave();
-  });
-  document.querySelectorAll('.ha-entity-input').forEach((input) => {
-    input.addEventListener('input', () => {
-      scheduleHaLiveDataAutosave();
-    });
-    input.addEventListener('change', () => {
-      scheduleHaLiveDataAutosave();
-    });
-  });
-
-  bindIfPresent('transport_mode_select', 'change', () => {
-    transportModeDirty = true;
-    applyTransportMode();
-  });
-
-  bindIfPresent('compatibility_profile_select', 'change', () => {
-    compatibilityProfileDirty = true;
-    applyCompatibilitySetting({
-      selectId: 'compatibility_profile_select',
-      noteId: 'compatibility_note',
-      endpoint: 'apiCompatibilityProfile',
-      bodyKey: 'profile',
-      dirtyFlag: 'compatibilityProfileDirty',
-      applyingFlag: 'compatibilityProfileApplying',
-      responseKey: 'compatibility_profile',
-      label: 'Compatibility profile'
-    });
-  });
-
-  bindIfPresent('float_word_order_select', 'change', () => {
-    floatWordOrderDirty = true;
-    applyCompatibilitySetting({
-      selectId: 'float_word_order_select',
-      noteId: 'compatibility_note',
-      endpoint: 'apiFloatWordOrder',
-      bodyKey: 'word_order',
-      dirtyFlag: 'floatWordOrderDirty',
-      applyingFlag: 'floatWordOrderApplying',
-      responseKey: 'float_word_order',
-      label: 'Float word order'
-    });
-  });
-
-  bindIfPresent('register_alias_mode_select', 'change', () => {
-    registerAliasModeDirty = true;
-    applyCompatibilitySetting({
-      selectId: 'register_alias_mode_select',
-      noteId: 'compatibility_note',
-      endpoint: 'apiRegisterAliasMode',
-      bodyKey: 'alias_mode',
-      dirtyFlag: 'registerAliasModeDirty',
-      applyingFlag: 'registerAliasModeApplying',
-      responseKey: 'register_alias_mode',
-      label: 'Register alias mode'
-    });
-  });
-
-  bindIfPresent('quick_profile_rtu', 'click', () => applyCompatibilityProfile('pro380-default'));
-  bindIfPresent('quick_profile_tcp', 'click', () => applyCompatibilityProfile('gateway-modbus-tcp'));
-  bindIfPresent('refresh_toggle_button', 'click', async () => {
+  const refreshToggle = byId('refresh_toggle_button');
+  if (refreshToggle) {
+    refreshToggle.addEventListener('click', async () => {
     autoRefreshEnabled = !autoRefreshEnabled;
     updateRefreshWidgets();
     if (autoRefreshEnabled) {
       await refreshData();
     }
-  });
+    });
+  }
 }
 
-initializeMenu();
 initializeControls();
 updateRefreshWidgets();
 setInterval(refreshData, 1000);

@@ -16,14 +16,7 @@
       const root = addonRoot === '/' ? '' : addonRoot;
 
       window.APP_PATHS = {
-        dashboard: root || '/',
-        settings: `${root}/settings` || '/settings',
-        apiState: `${root}/api/state` || '/api/state',
-        apiTransportMode: `${root}/api/settings/transport-mode` || '/api/settings/transport-mode',
-        apiFloatWordOrder: `${root}/api/settings/float-word-order` || '/api/settings/float-word-order',
-        apiRegisterAliasMode: `${root}/api/settings/register-alias-mode` || '/api/settings/register-alias-mode',
-        apiCompatibilityProfile: `${root}/api/settings/compatibility-profile` || '/api/settings/compatibility-profile',
-        apiHaLiveData: `${root}/api/settings/ha-live-data` || '/api/settings/ha-live-data'
+        apiState: `${root}/api/state` || '/api/state'
       };
     }());
   </script>
@@ -35,33 +28,12 @@
         <div class="eyebrow">BMW Wallbox Telemetry Bridge</div>
         <div class="topbar-title">Meter Emulator</div>
       </div>
-
-      <button class="menu-toggle secondary" id="menu_toggle" type="button" aria-expanded="false" aria-controls="site_nav_panel">
-        Menu
-      </button>
-
-      <nav class="nav-links" aria-label="Primary navigation">
-        <a href="{{ dashboard_path }}" id="nav_dashboard_link" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
-      </nav>
     </header>
-
-    <div class="menu-panel card" id="site_nav_panel" hidden>
-      <a href="{{ dashboard_path }}" id="menu_dashboard_link" class="menu-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
-    </div>
 
     <main class="wrap">
       {% block content %}{% endblock %}
     </main>
   </div>
-
-  <script>
-    const appPaths = window.APP_PATHS || {};
-    const navDashboardLink = document.getElementById('nav_dashboard_link');
-    const menuDashboardLink = document.getElementById('menu_dashboard_link');
-
-    if (navDashboardLink && appPaths.dashboard) navDashboardLink.href = appPaths.dashboard;
-    if (menuDashboardLink && appPaths.dashboard) menuDashboardLink.href = appPaths.dashboard;
-  </script>
   <script>{{ inline_js | safe }}</script>
 
 </body>
