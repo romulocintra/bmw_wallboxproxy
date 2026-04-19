@@ -6,7 +6,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>{% block title %}BMW Meter Emulator{% endblock %}</title>
-  <link rel="stylesheet" href="{{ static_css_path }}">
+  <style>{{ inline_css | safe }}</style>
+  <script>
+    window.APP_PATHS = {
+      dashboard: {{ dashboard_path|tojson }},
+      settings: {{ settings_path|tojson }},
+      apiState: {{ api_state_path|tojson }},
+      apiTransportMode: {{ api_transport_mode_path|tojson }},
+      apiFloatWordOrder: {{ api_float_word_order_path|tojson }},
+      apiRegisterAliasMode: {{ api_register_alias_mode_path|tojson }},
+      apiCompatibilityProfile: {{ api_compatibility_profile_path|tojson }},
+      apiHaLiveData: {{ api_ha_live_data_path|tojson }}
+    };
+  </script>
+  <script>{{ inline_js | safe }}</script>
 </head>
 <body data-page="{{ active_page }}">
   <div class="page-shell">
@@ -36,6 +49,5 @@
     </main>
   </div>
 
-  <script src="{{ static_js_path }}"></script>
 </body>
 </html>

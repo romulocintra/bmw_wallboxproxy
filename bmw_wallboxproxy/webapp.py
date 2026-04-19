@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from flask import Flask, jsonify, render_template, request, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from config import (
@@ -47,8 +49,18 @@ def _ingress_base_path() -> str:
     return base_path
 
 
-def _relative_path(path: str) -> str:
-    return _ingress_base_path() + path.lstrip("/")
+def _static_asset_text(filename: str) -> str:
+    asset_path = Path(app.static_folder) / filename
+    if not asset_path.exists():
+        return ""
+    return asset_path.read_text(encoding="utf-8")
+
+
+@app.before_request
+def apply_ingress_script_name() -> None:
+    ingress_path = request.headers.get("X-Ingress-Path")
+    if ingress_path:
+        request.environ["SCRIPT_NAME"] = ingress_path.rstrip("/")
 
 
 @app.context_processor
@@ -57,14 +69,14 @@ def inject_template_paths():
         "ingress_base_path": _ingress_base_path(),
         "dashboard_path": url_for("index"),
         "settings_path": url_for("settings"),
-        "static_css_path": url_for("static", filename="app.css"),
-        "static_js_path": url_for("static", filename="app.js"),
         "api_state_path": url_for("api_state"),
         "api_transport_mode_path": url_for("api_transport_mode"),
         "api_float_word_order_path": url_for("api_float_word_order"),
         "api_register_alias_mode_path": url_for("api_register_alias_mode"),
         "api_compatibility_profile_path": url_for("api_compatibility_profile"),
         "api_ha_live_data_path": url_for("api_ha_live_data"),
+        "inline_css": _static_asset_text("app.css"),
+        "inline_js": _static_asset_text("app.js"),
     }
 
 
