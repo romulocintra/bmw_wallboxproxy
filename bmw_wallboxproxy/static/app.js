@@ -13,6 +13,9 @@ var compatibilityProfileApplying = false;
 var haLiveDataDirty = false;
 var haLiveDataApplying = false;
 var autoRefreshEnabled = true;
+var haLiveDataAutosaveTimer = null;
+
+const HA_AUTOSAVE_DELAY_MS = 900;
 
 const REGISTER_GROUPS = [
   { start: 0x5000, end: 0x5001, label: 'Voltage' },
@@ -640,16 +643,18 @@ async function refreshData() {
 }
 
 async function applyTransportMode() {
-  const button = byId('transport_mode_button');
   const select = byId('transport_mode_select');
   const note = byId('transport_mode_note');
-  if (!button || !select || !note) {
+  if (!select || !note) {
+    return;
+  }
+
+  if (transportModeApplying) {
     return;
   }
 
   transportModeApplying = true;
-  button.disabled = true;
-  note.textContent = 'Applying transport mode...';
+  note.textContent = 'Saving transport mode...';
 
   try {
     const response = await fetch(appEndpoint('api/settings/transport-mode'), {
@@ -665,28 +670,29 @@ async function applyTransportMode() {
 
     transportModeDirty = false;
     note.textContent = payload.changed
-      ? `Transport mode set to ${payload.transport_mode}. Waiting for TCP client reconnect.`
+      ? `Transport mode saved as ${payload.transport_mode}. Waiting for TCP client reconnect.`
       : `Transport mode already set to ${payload.transport_mode}.`;
     await refreshData();
   } catch (error) {
     note.textContent = `Mode change failed: ${error.message}`;
   } finally {
     transportModeApplying = false;
-    button.disabled = false;
   }
 }
 
 async function applyCompatibilitySetting(config) {
-  const button = byId(config.buttonId);
   const select = byId(config.selectId);
   const note = byId(config.noteId);
-  if (!button || !select || !note) {
+  if (!select || !note) {
+    return;
+  }
+
+  if (window[config.applyingFlag]) {
     return;
   }
 
   window[config.applyingFlag] = true;
-  button.disabled = true;
-  note.textContent = `Applying ${config.label}...`;
+  note.textContent = `Saving ${config.label}...`;
 
   try {
     const response = await fetch(appEndpoint(config.endpoint), {
@@ -707,7 +713,6 @@ async function applyCompatibilitySetting(config) {
     note.textContent = `${config.label} change failed: ${error.message}`;
   } finally {
     window[config.applyingFlag] = false;
-    button.disabled = false;
   }
 }
 
@@ -740,17 +745,15 @@ async function applyCompatibilityProfile(profileName) {
 }
 
 async function applyHaLiveDataSettings() {
-  const button = byId('ha_live_data_button');
   const note = byId('ha_live_data_note');
   const urlInput = byId('ha_url_input');
   const verifyTlsSelect = byId('ha_verify_tls_select');
-  if (!button || !note) {
+  if (!note || haLiveDataApplying) {
     return;
   }
 
   haLiveDataApplying = true;
-  button.disabled = true;
-  note.textContent = 'Saving Home Assistant source settings...';
+  note.textContent = 'Saving Home Assistant settings...';
 
   try {
     const response = await fetch(appEndpoint('api/settings/ha-live-data'), {
@@ -777,8 +780,24 @@ async function applyHaLiveDataSettings() {
     note.textContent = `HA settings failed: ${error.message}`;
   } finally {
     haLiveDataApplying = false;
-    button.disabled = false;
   }
+}
+
+function scheduleHaLiveDataAutosave() {
+  haLiveDataDirty = true;
+  const note = byId('ha_live_data_note');
+  if (note && !haLiveDataApplying) {
+    note.textContent = 'Changes detected. Autosaving...';
+  }
+
+  if (haLiveDataAutosaveTimer) {
+    clearTimeout(haLiveDataAutosaveTimer);
+  }
+
+  haLiveDataAutosaveTimer = setTimeout(() => {
+    haLiveDataAutosaveTimer = null;
+    applyHaLiveDataSettings();
+  }, HA_AUTOSAVE_DELAY_MS);
 }
 
 function initializeMenu() {
@@ -806,67 +825,66 @@ function initializeMenu() {
 
 function initializeControls() {
   bindIfPresent('ha_url_input', 'input', () => {
-    haLiveDataDirty = true;
+    scheduleHaLiveDataAutosave();
   });
   bindIfPresent('ha_verify_tls_select', 'change', () => {
-    haLiveDataDirty = true;
+    scheduleHaLiveDataAutosave();
   });
-  bindIfPresent('ha_live_data_button', 'click', applyHaLiveDataSettings);
   document.querySelectorAll('.ha-entity-input').forEach((input) => {
     input.addEventListener('input', () => {
-      haLiveDataDirty = true;
+      scheduleHaLiveDataAutosave();
+    });
+    input.addEventListener('change', () => {
+      scheduleHaLiveDataAutosave();
     });
   });
 
   bindIfPresent('transport_mode_select', 'change', () => {
     transportModeDirty = true;
+    applyTransportMode();
   });
-  bindIfPresent('transport_mode_button', 'click', applyTransportMode);
 
   bindIfPresent('compatibility_profile_select', 'change', () => {
     compatibilityProfileDirty = true;
+    applyCompatibilitySetting({
+      selectId: 'compatibility_profile_select',
+      noteId: 'compatibility_note',
+      endpoint: 'api/settings/compatibility-profile',
+      bodyKey: 'profile',
+      dirtyFlag: 'compatibilityProfileDirty',
+      applyingFlag: 'compatibilityProfileApplying',
+      responseKey: 'compatibility_profile',
+      label: 'Compatibility profile'
+    });
   });
-  bindIfPresent('compatibility_profile_button', 'click', () => applyCompatibilitySetting({
-    buttonId: 'compatibility_profile_button',
-    selectId: 'compatibility_profile_select',
-    noteId: 'compatibility_note',
-    endpoint: 'api/settings/compatibility-profile',
-    bodyKey: 'profile',
-    dirtyFlag: 'compatibilityProfileDirty',
-    applyingFlag: 'compatibilityProfileApplying',
-    responseKey: 'compatibility_profile',
-    label: 'Compatibility profile'
-  }));
 
   bindIfPresent('float_word_order_select', 'change', () => {
     floatWordOrderDirty = true;
+    applyCompatibilitySetting({
+      selectId: 'float_word_order_select',
+      noteId: 'compatibility_note',
+      endpoint: 'api/settings/float-word-order',
+      bodyKey: 'word_order',
+      dirtyFlag: 'floatWordOrderDirty',
+      applyingFlag: 'floatWordOrderApplying',
+      responseKey: 'float_word_order',
+      label: 'Float word order'
+    });
   });
-  bindIfPresent('float_word_order_button', 'click', () => applyCompatibilitySetting({
-    buttonId: 'float_word_order_button',
-    selectId: 'float_word_order_select',
-    noteId: 'compatibility_note',
-    endpoint: 'api/settings/float-word-order',
-    bodyKey: 'word_order',
-    dirtyFlag: 'floatWordOrderDirty',
-    applyingFlag: 'floatWordOrderApplying',
-    responseKey: 'float_word_order',
-    label: 'Float word order'
-  }));
 
   bindIfPresent('register_alias_mode_select', 'change', () => {
     registerAliasModeDirty = true;
+    applyCompatibilitySetting({
+      selectId: 'register_alias_mode_select',
+      noteId: 'compatibility_note',
+      endpoint: 'api/settings/register-alias-mode',
+      bodyKey: 'alias_mode',
+      dirtyFlag: 'registerAliasModeDirty',
+      applyingFlag: 'registerAliasModeApplying',
+      responseKey: 'register_alias_mode',
+      label: 'Register alias mode'
+    });
   });
-  bindIfPresent('register_alias_mode_button', 'click', () => applyCompatibilitySetting({
-    buttonId: 'register_alias_mode_button',
-    selectId: 'register_alias_mode_select',
-    noteId: 'compatibility_note',
-    endpoint: 'api/settings/register-alias-mode',
-    bodyKey: 'alias_mode',
-    dirtyFlag: 'registerAliasModeDirty',
-    applyingFlag: 'registerAliasModeApplying',
-    responseKey: 'register_alias_mode',
-    label: 'Register alias mode'
-  }));
 
   bindIfPresent('quick_profile_rtu', 'click', () => applyCompatibilityProfile('pro380-default'));
   bindIfPresent('quick_profile_tcp', 'click', () => applyCompatibilityProfile('gateway-modbus-tcp'));

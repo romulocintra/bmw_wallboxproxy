@@ -88,8 +88,7 @@
       </div>
 
       <div class="toolbar ha-actions">
-        <div class="note" id="ha_live_data_note">{% if is_supervisor_ha_mode %}Persist entity IDs for the internal Home Assistant API proxy without editing code by hand.{% else %}Persist the Home Assistant source settings without editing code by hand.{% endif %}</div>
-        <button id="ha_live_data_button" type="button">{% if is_supervisor_ha_mode %}Save entity settings{% else %}Save HA source settings{% endif %}</button>
+        <div class="note" id="ha_live_data_note">{% if is_supervisor_ha_mode %}Entity IDs autosave a moment after you stop typing. {% else %}Home Assistant source settings autosave a moment after you stop typing. {% endif %}No manual save button is needed.</div>
       </div>
     </div>
   </section>
@@ -111,9 +110,8 @@
               Mode
               <select id="transport_mode_select"></select>
             </label>
-            <button id="transport_mode_button" type="button">Apply</button>
           </div>
-          <div class="note" id="transport_mode_note">Switch between native Modbus TCP and RTU-over-TCP framing. Changing mode closes the current client connection.</div>
+          <div class="note" id="transport_mode_note">Switch between native Modbus TCP and RTU-over-TCP framing. Changes autosave immediately and close the current client connection.</div>
         </div>
 
         <div class="control-box">
@@ -142,7 +140,6 @@
               Profile
               <select id="compatibility_profile_select"></select>
             </label>
-            <button id="compatibility_profile_button" type="button">Apply</button>
           </div>
         </div>
 
@@ -152,18 +149,16 @@
               Float word order
               <select id="float_word_order_select"></select>
             </label>
-            <button id="float_word_order_button" type="button">Apply</button>
           </div>
           <div class="control-box">
             <label>
               Register alias mode
               <select id="register_alias_mode_select"></select>
             </label>
-            <button id="register_alias_mode_button" type="button">Apply</button>
           </div>
         </div>
 
-        <div class="note" id="compatibility_note">Use these to test PRO380 word-order and 0-based or 1-based address compatibility.</div>
+        <div class="note" id="compatibility_note">Use these to test PRO380 word-order and 0-based or 1-based address compatibility. Changes autosave immediately.</div>
       </div>
     </div>
   </section>
