@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+export PATH=/opt/venv/bin:${PATH}
 export APP_ENV_FILE=/data/bmw_wallboxproxy.env
 export MODBUS_LISTEN_HOST=0.0.0.0
 export MODBUS_LISTEN_PORT=502
@@ -24,4 +25,4 @@ fi
 bashio::log.info "Starting BMW Wallbox Proxy add-on"
 bashio::log.info "Web UI is served over Home Assistant ingress on internal HTTP port 8099"
 
-exec python3 /app/app.py
+exec /opt/venv/bin/python /app/app.py
