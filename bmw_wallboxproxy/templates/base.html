@@ -8,18 +8,25 @@
   <title>{% block title %}BMW Meter Emulator{% endblock %}</title>
   <style>{{ inline_css | safe }}</style>
   <script>
-    window.APP_PATHS = {
-      dashboard: {{ dashboard_path|tojson }},
-      settings: {{ settings_path|tojson }},
-      apiState: {{ api_state_path|tojson }},
-      apiTransportMode: {{ api_transport_mode_path|tojson }},
-      apiFloatWordOrder: {{ api_float_word_order_path|tojson }},
-      apiRegisterAliasMode: {{ api_register_alias_mode_path|tojson }},
-      apiCompatibilityProfile: {{ api_compatibility_profile_path|tojson }},
-      apiHaLiveData: {{ api_ha_live_data_path|tojson }}
-    };
+    (function () {
+      const currentPath = window.location.pathname.replace(/\/+$/, '');
+      const addonRoot = currentPath.endsWith('/settings')
+        ? (currentPath.slice(0, -'/settings'.length) || '/')
+        : (currentPath || '/');
+      const root = addonRoot === '/' ? '' : addonRoot;
+
+      window.APP_PATHS = {
+        dashboard: root || '/',
+        settings: `${root}/settings` || '/settings',
+        apiState: `${root}/api/state` || '/api/state',
+        apiTransportMode: `${root}/api/settings/transport-mode` || '/api/settings/transport-mode',
+        apiFloatWordOrder: `${root}/api/settings/float-word-order` || '/api/settings/float-word-order',
+        apiRegisterAliasMode: `${root}/api/settings/register-alias-mode` || '/api/settings/register-alias-mode',
+        apiCompatibilityProfile: `${root}/api/settings/compatibility-profile` || '/api/settings/compatibility-profile',
+        apiHaLiveData: `${root}/api/settings/ha-live-data` || '/api/settings/ha-live-data'
+      };
+    }());
   </script>
-  <script>{{ inline_js | safe }}</script>
 </head>
 <body data-page="{{ active_page }}">
   <div class="page-shell">
@@ -34,20 +41,34 @@
       </button>
 
       <nav class="nav-links" aria-label="Primary navigation">
-        <a href="{{ dashboard_path }}" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
-        <a href="{{ settings_path }}" class="nav-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
+        <a href="{{ dashboard_path }}" id="nav_dashboard_link" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
+        <a href="{{ settings_path }}" id="nav_settings_link" class="nav-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
       </nav>
     </header>
 
     <div class="menu-panel card" id="site_nav_panel" hidden>
-      <a href="{{ dashboard_path }}" class="menu-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
-      <a href="{{ settings_path }}" class="menu-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
+      <a href="{{ dashboard_path }}" id="menu_dashboard_link" class="menu-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
+      <a href="{{ settings_path }}" id="menu_settings_link" class="menu-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
     </div>
 
     <main class="wrap">
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  <script>
+    const appPaths = window.APP_PATHS || {};
+    const navDashboardLink = document.getElementById('nav_dashboard_link');
+    const navSettingsLink = document.getElementById('nav_settings_link');
+    const menuDashboardLink = document.getElementById('menu_dashboard_link');
+    const menuSettingsLink = document.getElementById('menu_settings_link');
+
+    if (navDashboardLink && appPaths.dashboard) navDashboardLink.href = appPaths.dashboard;
+    if (navSettingsLink && appPaths.settings) navSettingsLink.href = appPaths.settings;
+    if (menuDashboardLink && appPaths.dashboard) menuDashboardLink.href = appPaths.dashboard;
+    if (menuSettingsLink && appPaths.settings) menuSettingsLink.href = appPaths.settings;
+  </script>
+  <script>{{ inline_js | safe }}</script>
 
 </body>
 </html>
