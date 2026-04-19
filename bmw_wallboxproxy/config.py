@@ -281,10 +281,7 @@ def update_ha_live_data_settings(ha_url: str, verify_tls: bool, entities: dict[s
 
     normalized_entities: dict[str, str] = {}
     for key, _label, _help in ENTITY_FIELDS:
-        entity_id = str(entities[key]).strip()
-        if not entity_id:
-            raise ValueError(f"missing entity id for {key}")
-        normalized_entities[key] = entity_id
+        normalized_entities[key] = str(entities[key]).strip()
 
     changed = HA_URL != normalized_url or HA_VERIFY_TLS != verify_tls or any(
         ENTITIES.get(key) != value for key, value in normalized_entities.items()

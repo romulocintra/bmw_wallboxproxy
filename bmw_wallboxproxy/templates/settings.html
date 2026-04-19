@@ -31,9 +31,9 @@
       <div>
         <h2>Home Assistant live data</h2>
         {% if is_supervisor_ha_mode %}
-          <div class="panel-note">This add-on is using Home Assistant's internal Supervisor API proxy. No external Home Assistant URL or manual token is needed here. Only the entity IDs below are configurable.</div>
+          <div class="panel-note">This add-on is using Home Assistant's internal Supervisor API proxy. No external Home Assistant URL or manual token is needed here. Only the entity IDs below are configurable, and you can leave unused fields empty.</div>
         {% else %}
-          <div class="panel-note">Source URL, TLS verification, and entity IDs are stored in <span class="monospace">{{ settings_store_path }}</span> when you save them here. In standalone mode, the app reads Home Assistant through the configured URL and token.</div>
+          <div class="panel-note">Source URL, TLS verification, and entity IDs are stored in <span class="monospace">{{ settings_store_path }}</span> when you save them here. In standalone mode, the app reads Home Assistant through the configured URL and token. Unused entity fields can be left empty.</div>
         {% endif %}
       </div>
     </div>
