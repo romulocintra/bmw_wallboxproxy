@@ -100,20 +100,5 @@ def api_state():
             "modbus_log": ml,
             "net_log": nl,
             "tcp_raw_log": tl,
-            "settings": {
-                "transport_mode": get_transport_mode(),
-                "transport_mode_options": list(ALLOWED_TRANSPORT_MODES),
-                "float_word_order": get_float_word_order(),
-                "float_word_order_options": list(ALLOWED_FLOAT_WORD_ORDERS),
-                "register_alias_mode": get_register_alias_mode(),
-                "register_alias_mode_options": list(ALLOWED_REGISTER_ALIAS_MODES),
-                "compatibility_profile": get_compatibility_profile_name(),
-                "compatibility_profile_options": ["custom", *list(COMPATIBILITY_PROFILES.keys())],
-                "ha_auth_mode": get_ha_auth_mode(),
-                "ha_url": get_ha_url(),
-                "ha_verify_tls": get_ha_verify_tls(),
-                "is_supervisor_ha_mode": is_supervisor_ha_mode(),
-                "ha_entities": get_ha_entities(),
-            },
         }
     )

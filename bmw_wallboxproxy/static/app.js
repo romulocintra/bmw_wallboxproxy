@@ -470,67 +470,78 @@ async function refreshData() {
     return;
   }
 
-  const response = await fetch(appEndpoint('apiState'));
-  const data = await response.json();
-  const values = data.values;
-  const stats = data.stats;
+  try {
+    const response = await fetch(appEndpoint('apiState'));
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
 
-  setText('u1', `${values.u1.toFixed(1)} V`);
-  setText('u2', `${values.u2.toFixed(1)} V`);
-  setText('u3', `${values.u3.toFixed(1)} V`);
-  setText('i1', `${values.i1.toFixed(2)} A`);
-  setText('i2', `${values.i2.toFixed(2)} A`);
-  setText('i3', `${values.i3.toFixed(2)} A`);
-  setText('p_total', `${values.p_total.toFixed(0)} W`);
-  setText('freq', `${values.freq.toFixed(2)} Hz`);
-  setText('p_phases', `${values.p1.toFixed(0)} / ${values.p2.toFixed(0)} / ${values.p3.toFixed(0)} W`);
-  setText('eimp', `${values.e_import_total.toFixed(3)}`);
-  setText('eexp', `${values.e_export_total.toFixed(3)}`);
+    const data = await response.json();
+    const values = data.values;
+    const stats = data.stats;
 
-  const connectionTone = stats.tcp_connected ? 'good' : (stats.tcp_connects > 0 ? 'warn' : 'neutral');
-  const reachabilityTone = stats.transport_reachability_code === 'valid_modbus_seen'
-    ? 'good'
-    : (stats.transport_reachability_code === 'payload_seen' || stats.transport_reachability_code === 'connected_no_payload' ? 'warn' : 'neutral');
+    setText('u1', `${values.u1.toFixed(1)} V`);
+    setText('u2', `${values.u2.toFixed(1)} V`);
+    setText('u3', `${values.u3.toFixed(1)} V`);
+    setText('i1', `${values.i1.toFixed(2)} A`);
+    setText('i2', `${values.i2.toFixed(2)} A`);
+    setText('i3', `${values.i3.toFixed(2)} A`);
+    setText('p_total', `${values.p_total.toFixed(0)} W`);
+    setText('freq', `${values.freq.toFixed(2)} Hz`);
+    setText('p_phases', `${values.p1.toFixed(0)} / ${values.p2.toFixed(0)} / ${values.p3.toFixed(0)} W`);
+    setText('eimp', `${values.e_import_total.toFixed(3)}`);
+    setText('eexp', `${values.e_export_total.toFixed(3)}`);
 
-  setText('tcp_connected', stats.tcp_connected ? 'Connected' : 'Disconnected');
-  setText('transport_mode', stats.transport_mode);
-  setText('hero_transport_mode', stats.transport_mode);
-  setText('float_word_order', stats.float_word_order);
-  setText('compatibility_profile', stats.compatibility_profile);
-  setText('transport_reachability', stats.transport_reachability);
-  setText('last_connect', stats.last_connect);
-  setText('last_disconnect', stats.last_disconnect);
-  setText('register_alias_mode', stats.register_alias_mode);
-  setText('tcp_accept_errors', stats.tcp_accept_errors);
-  setText('rx_frames', stats.rx_frames);
-  setText('tx_frames', stats.tx_frames);
-  setText('crc_fail', stats.crc_fail);
-  setText('wrong_slave', stats.wrong_slave);
-  setText('short_frames', stats.short_frames);
-  setText('illegal_quantity', stats.illegal_quantity);
-  setText('unsupported_fc', stats.unsupported_fc);
-  setText('bytes_flow', `${stats.bytes_rx} / ${stats.bytes_tx}`);
-  setText('last_fc', stats.last_fc);
-  setText('last_addr_qty', `${stats.last_start_addr} / ${stats.last_quantity}`);
-  setText('last_crc', `${stats.last_crc_received} / ${stats.last_crc_expected}`);
-  setText('last_transaction_id', stats.last_transaction_id);
-  setText('last_exception', stats.last_exception);
-  setText('last_buffer_len', stats.last_buffer_len);
+    const connectionTone = stats.tcp_connected ? 'good' : (stats.tcp_connects > 0 ? 'warn' : 'neutral');
+    const reachabilityTone = stats.transport_reachability_code === 'valid_modbus_seen'
+      ? 'good'
+      : (stats.transport_reachability_code === 'payload_seen' || stats.transport_reachability_code === 'connected_no_payload' ? 'warn' : 'neutral');
 
-  setText('hero_connection_text', formatConnectionSummary(stats));
-  setText('hero_reachability_text', stats.transport_reachability);
-  setText('hero_last_request', formatLastRequest(stats));
-  setText('session_snapshot', formatSessionSnapshot(stats));
-  setText('last_refresh', new Date().toLocaleTimeString());
+    setText('tcp_connected', stats.tcp_connected ? 'Connected' : 'Disconnected');
+    setText('transport_mode', stats.transport_mode);
+    setText('hero_transport_mode', stats.transport_mode);
+    setText('float_word_order', stats.float_word_order);
+    setText('compatibility_profile', stats.compatibility_profile);
+    setText('transport_reachability', stats.transport_reachability);
+    setText('last_connect', stats.last_connect);
+    setText('last_disconnect', stats.last_disconnect);
+    setText('register_alias_mode', stats.register_alias_mode);
+    setText('tcp_accept_errors', stats.tcp_accept_errors);
+    setText('rx_frames', stats.rx_frames);
+    setText('tx_frames', stats.tx_frames);
+    setText('crc_fail', stats.crc_fail);
+    setText('wrong_slave', stats.wrong_slave);
+    setText('short_frames', stats.short_frames);
+    setText('illegal_quantity', stats.illegal_quantity);
+    setText('unsupported_fc', stats.unsupported_fc);
+    setText('bytes_flow', `${stats.bytes_rx} / ${stats.bytes_tx}`);
+    setText('last_fc', stats.last_fc);
+    setText('last_addr_qty', `${stats.last_start_addr} / ${stats.last_quantity}`);
+    setText('last_crc', `${stats.last_crc_received} / ${stats.last_crc_expected}`);
+    setText('last_transaction_id', stats.last_transaction_id);
+    setText('last_exception', stats.last_exception);
+    setText('last_buffer_len', stats.last_buffer_len);
 
-  setBadge('hero_connection_badge', stats.tcp_connected ? 'Session live' : formatConnectionSummary(stats), connectionTone);
-  setBadge('hero_profile_badge', `Profile: ${stats.compatibility_profile}`, 'neutral');
-  setBadge('hero_reachability_badge', stats.transport_reachability, reachabilityTone);
+    setText('hero_connection_text', formatConnectionSummary(stats));
+    setText('hero_reachability_text', stats.transport_reachability);
+    setText('hero_last_request', formatLastRequest(stats));
+    setText('session_snapshot', formatSessionSnapshot(stats));
+    setText('last_refresh', new Date().toLocaleTimeString());
 
-  renderDecodedRequestFeed('modbus_decoded_log', buildDecodedRequestEntries(data.modbus_log));
-  renderLogFeed('modbus_log', buildRawModbusEntries(data.modbus_log), 'Waiting for Modbus trace data...');
-  setText('net_log', data.net_log.join('\n'));
-  setText('tcp_raw_log', data.tcp_raw_log.join('\n'));
+    setBadge('hero_connection_badge', stats.tcp_connected ? 'Session live' : formatConnectionSummary(stats), connectionTone);
+    setBadge('hero_profile_badge', `Profile: ${stats.compatibility_profile}`, 'neutral');
+    setBadge('hero_reachability_badge', stats.transport_reachability, reachabilityTone);
+
+    renderDecodedRequestFeed('modbus_decoded_log', buildDecodedRequestEntries(data.modbus_log));
+    renderLogFeed('modbus_log', buildRawModbusEntries(data.modbus_log), 'Waiting for Modbus trace data...');
+    setText('net_log', data.net_log.join('\n'));
+    setText('tcp_raw_log', data.tcp_raw_log.join('\n'));
+  } catch (error) {
+    setText('session_snapshot', 'API error');
+    setText('last_refresh', 'Update failed');
+    setBadge('hero_connection_badge', 'Dashboard update failed', 'bad');
+    setText('net_log', `Dashboard refresh failed: ${error.message}`);
+  }
 }
 
 function initializeControls() {
