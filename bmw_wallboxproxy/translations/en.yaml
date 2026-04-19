@@ -1,6 +1,54 @@
 configuration:
   ha_token:
     name: Home Assistant long-lived access token
-    description: Token used to read Home Assistant entity states. URL and entity mapping are configured in the add-on web UI.
+    description: Optional token for standalone use. In the Home Assistant add-on, the internal Supervisor proxy is used automatically.
+  transport_mode:
+    name: Transport mode
+    description: Select whether the wallbox speaks RTU over TCP framing or native Modbus TCP.
+  float_word_order:
+    name: Float word order
+    description: Select how 32-bit floating-point registers are exposed to the wallbox.
+  register_alias_mode:
+    name: Register alias mode
+    description: Select how register addressing offsets should be handled.
+  u1_entity:
+    name: Voltage L1 entity
+    description: Home Assistant entity ID for phase 1 voltage.
+  u2_entity:
+    name: Voltage L2 entity
+    description: Home Assistant entity ID for phase 2 voltage.
+  u3_entity:
+    name: Voltage L3 entity
+    description: Home Assistant entity ID for phase 3 voltage.
+  i1_entity:
+    name: Current L1 entity
+    description: Home Assistant entity ID for phase 1 current.
+  i2_entity:
+    name: Current L2 entity
+    description: Home Assistant entity ID for phase 2 current.
+  i3_entity:
+    name: Current L3 entity
+    description: Home Assistant entity ID for phase 3 current.
+  p_total_entity:
+    name: Total power entity
+    description: Home Assistant entity ID for total active power.
+  freq_entity:
+    name: Frequency entity
+    description: Home Assistant entity ID for grid frequency.
+  p1_entity:
+    name: Power L1 entity
+    description: Home Assistant entity ID for phase 1 active power.
+  p2_entity:
+    name: Power L2 entity
+    description: Home Assistant entity ID for phase 2 active power.
+  p3_entity:
+    name: Power L3 entity
+    description: Home Assistant entity ID for phase 3 active power.
+  e_import_total_entity:
+    name: Imported energy entity
+    description: Home Assistant entity ID for total imported energy.
+  e_export_total_entity:
+    name: Exported energy entity
+    description: Home Assistant entity ID for total exported energy.
 network:
   502/TCP: Modbus TCP listener for the BMW wallbox or TCP serial gateway

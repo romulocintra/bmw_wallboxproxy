@@ -6,9 +6,9 @@
   <section class="card hero hero-settings">
     <div class="hero-top">
       <div class="hero-copy">
-        <div class="eyebrow">Operational tuning</div>
-        <h1>Transport and Home Assistant settings</h1>
-        <p>Transport behavior, compatibility tuning, and the Home Assistant inputs that feed the live meter values can all be managed here without hardcoding them in Python.</p>
+        <div class="eyebrow">Configuration moved</div>
+        <h1>Use the Home Assistant add-on config panel</h1>
+        <p>Transport mode, compatibility settings, Home Assistant token, and all entity mappings are now configured directly in the Home Assistant add-on interface instead of this web page.</p>
       </div>
       <div class="refresh-box compact-summary">
         <div class="refresh-row stacked-row">
@@ -29,136 +29,31 @@
   <section class="card panel">
     <div class="panel-head">
       <div>
-        <h2>Home Assistant live data</h2>
-        {% if is_supervisor_ha_mode %}
-          <div class="panel-note">This add-on is using Home Assistant's internal Supervisor API proxy. No external Home Assistant URL or manual token is needed here. Only the entity IDs below are configurable, and you can leave unused fields empty.</div>
-        {% else %}
-          <div class="panel-note">Source URL, TLS verification, and entity IDs are stored in <span class="monospace">{{ settings_store_path }}</span> when you save them here. In standalone mode, the app reads Home Assistant through the configured URL and token. Unused entity fields can be left empty.</div>
-        {% endif %}
+        <h2>Current add-on configuration model</h2>
+        <div class="panel-note">The add-on now reads its effective configuration from Home Assistant add-on options at startup. This page is intentionally read-only.</div>
       </div>
     </div>
 
     <div class="controls-stack">
-      {% if not is_supervisor_ha_mode %}
-        <div class="segmented ha-source-grid">
-          <div class="control-box">
-            <label for="ha_url_input">
-              Home Assistant URL
-              <input id="ha_url_input" type="text" value="{{ ha_url }}" placeholder="https://homeassistant.local:8123" autocomplete="off" spellcheck="false">
-            </label>
-          </div>
-
-          <div class="control-box">
-            <label for="ha_verify_tls_select">
-              TLS certificate verification
-              <select id="ha_verify_tls_select">
-                <option value="true"{% if ha_verify_tls %} selected{% endif %}>Enabled</option>
-                <option value="false"{% if not ha_verify_tls %} selected{% endif %}>Disabled</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      {% else %}
-        <div class="control-box">
-          <div class="subheading">Connection mode</div>
-          <div class="note">Using the internal Home Assistant API proxy: <span class="monospace">http://supervisor/core/api</span></div>
-          <div class="note">Auth mode: <span class="monospace">{{ ha_auth_mode }}</span></div>
-        </div>
-      {% endif %}
+      <div class="control-box">
+        <div class="subheading">Connection mode</div>
+        <div class="note">Home Assistant API auth mode: <span class="monospace">{{ ha_auth_mode }}</span></div>
+        <div class="note">Effective Home Assistant URL: <span class="monospace">{{ ha_url }}</span></div>
+        <div class="note">TLS verification: <span class="monospace">{{ 'enabled' if ha_verify_tls else 'disabled' }}</span></div>
+      </div>
 
       <div class="entity-grid">
         {% for field in ha_entity_fields %}
           <div class="control-box entity-field">
-            <label for="ha_entity_{{ field.key }}">
-              {{ field.label }}
-              <input
-                id="ha_entity_{{ field.key }}"
-                class="ha-entity-input"
-                data-entity-key="{{ field.key }}"
-                type="text"
-                value="{{ field.value }}"
-                placeholder="sensor.example_{{ field.key }}"
-                autocomplete="off"
-                spellcheck="false"
-              >
-            </label>
+            <div class="subheading">{{ field.label }}</div>
+            <div class="note monospace">{{ field.value or 'Not configured' }}</div>
             <div class="note">{{ field.help }}</div>
           </div>
         {% endfor %}
       </div>
 
       <div class="toolbar ha-actions">
-        <div class="note" id="ha_live_data_note">{% if is_supervisor_ha_mode %}Entity IDs autosave a moment after you stop typing. {% else %}Home Assistant source settings autosave a moment after you stop typing. {% endif %}No manual save button is needed.</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="settings-grid">
-    <div class="card panel">
-      <div class="panel-head">
-        <div>
-          <h2>Session controls</h2>
-          <div class="panel-note">Transport changes are persisted now, so the next restart comes back in the same mode and compatibility profile.</div>
-        </div>
-      </div>
-
-      <div class="controls-stack">
-        <div class="control-box">
-          <div class="subheading">Transport</div>
-          <div class="toolbar">
-            <label>
-              Mode
-              <select id="transport_mode_select"></select>
-            </label>
-          </div>
-          <div class="note" id="transport_mode_note">Switch between native Modbus TCP and RTU-over-TCP framing. Changes autosave immediately and close the current client connection.</div>
-        </div>
-
-        <div class="control-box">
-          <div class="subheading">Quick profiles</div>
-          <div class="quick-actions">
-            <button id="quick_profile_rtu" class="secondary" type="button">DR gateway / RTU</button>
-            <button id="quick_profile_tcp" class="secondary" type="button">Direct Modbus TCP</button>
-          </div>
-          <div class="note">Use the quick presets when switching between your working DR gateway setup and direct Modbus TCP experiments.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card panel">
-      <div class="panel-head">
-        <div>
-          <h2>Compatibility tuning</h2>
-          <div class="panel-note">Keep these advanced settings isolated here unless the wallbox needs a different profile, word order, or register offset behavior.</div>
-        </div>
-      </div>
-
-      <div class="controls-stack">
-        <div class="control-box">
-          <div class="toolbar">
-            <label>
-              Profile
-              <select id="compatibility_profile_select"></select>
-            </label>
-          </div>
-        </div>
-
-        <div class="segmented">
-          <div class="control-box">
-            <label>
-              Float word order
-              <select id="float_word_order_select"></select>
-            </label>
-          </div>
-          <div class="control-box">
-            <label>
-              Register alias mode
-              <select id="register_alias_mode_select"></select>
-            </label>
-          </div>
-        </div>
-
-        <div class="note" id="compatibility_note">Use these to test PRO380 word-order and 0-based or 1-based address compatibility. Changes autosave immediately.</div>
+        <div class="note">Change these values in the Home Assistant add-on configuration, save, and restart the add-on.</div>
       </div>
     </div>
   </section>

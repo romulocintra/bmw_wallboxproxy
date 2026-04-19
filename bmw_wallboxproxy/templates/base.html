@@ -42,13 +42,11 @@
 
       <nav class="nav-links" aria-label="Primary navigation">
         <a href="{{ dashboard_path }}" id="nav_dashboard_link" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
-        <a href="{{ settings_path }}" id="nav_settings_link" class="nav-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
       </nav>
     </header>
 
     <div class="menu-panel card" id="site_nav_panel" hidden>
       <a href="{{ dashboard_path }}" id="menu_dashboard_link" class="menu-link{% if active_page == 'dashboard' %} active{% endif %}">Dashboard</a>
-      <a href="{{ settings_path }}" id="menu_settings_link" class="menu-link{% if active_page == 'settings' %} active{% endif %}">Settings</a>
     </div>
 
     <main class="wrap">
@@ -59,14 +57,10 @@
   <script>
     const appPaths = window.APP_PATHS || {};
     const navDashboardLink = document.getElementById('nav_dashboard_link');
-    const navSettingsLink = document.getElementById('nav_settings_link');
     const menuDashboardLink = document.getElementById('menu_dashboard_link');
-    const menuSettingsLink = document.getElementById('menu_settings_link');
 
     if (navDashboardLink && appPaths.dashboard) navDashboardLink.href = appPaths.dashboard;
-    if (navSettingsLink && appPaths.settings) navSettingsLink.href = appPaths.settings;
     if (menuDashboardLink && appPaths.dashboard) menuDashboardLink.href = appPaths.dashboard;
-    if (menuSettingsLink && appPaths.settings) menuSettingsLink.href = appPaths.settings;
   </script>
   <script>{{ inline_js | safe }}</script>
 

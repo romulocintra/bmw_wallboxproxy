@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy
-version: "0.1.18"
+version: "0.2.0"
 slug: bmw_wallboxproxy
 description: Emulate a PRO380-style Modbus meter for a BMW wallbox using Home Assistant sensor data.
 arch:
@@ -23,7 +23,39 @@ ports_description:
   502/tcp: BMW wallbox Modbus TCP listener
 options:
   ha_token: ""
+  transport_mode: rtu_over_tcp
+  float_word_order: abcd
+  register_alias_mode: exact
+  u1_entity: ""
+  u2_entity: ""
+  u3_entity: ""
+  i1_entity: ""
+  i2_entity: ""
+  i3_entity: ""
+  p_total_entity: ""
+  freq_entity: ""
+  p1_entity: ""
+  p2_entity: ""
+  p3_entity: ""
+  e_import_total_entity: ""
+  e_export_total_entity: ""
 schema:
   ha_token: "password?"
+  transport_mode: "list(rtu_over_tcp|modbus_tcp)"
+  float_word_order: "list(abcd|cdab)"
+  register_alias_mode: "list(exact|alias_minus_1|alias_plus_1|alias_both)"
+  u1_entity: "str?"
+  u2_entity: "str?"
+  u3_entity: "str?"
+  i1_entity: "str?"
+  i2_entity: "str?"
+  i3_entity: "str?"
+  p_total_entity: "str?"
+  freq_entity: "str?"
+  p1_entity: "str?"
+  p2_entity: "str?"
+  p3_entity: "str?"
+  e_import_total_entity: "str?"
+  e_export_total_entity: "str?"
 watchdog: http://[HOST]:[PORT:8099]/api/state
 timeout: 20

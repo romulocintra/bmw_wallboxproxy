@@ -222,7 +222,7 @@ ENTITIES = _load_entity_settings()
 def get_ha_url() -> str:
     if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
         return "http://supervisor/core/api"
-    return _read_env_file_values().get("HA_URL", HA_URL)
+    return HA_URL
 
 
 def get_ha_api_base_url() -> str:
@@ -235,10 +235,7 @@ def get_ha_api_base_url() -> str:
 def get_ha_verify_tls() -> bool:
     if HA_USE_SUPERVISOR and SUPERVISOR_TOKEN:
         return False
-    raw_value = _read_env_file_values().get("HA_VERIFY_TLS")
-    if raw_value is None:
-        return HA_VERIFY_TLS
-    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+    return HA_VERIFY_TLS
 
 
 def get_ha_auth_token() -> str:
@@ -268,11 +265,7 @@ def get_runtime_settings_store() -> str:
 
 
 def get_ha_entities() -> dict[str, str]:
-    env_values = _read_env_file_values()
-    return {
-        key: env_values.get(_entity_env_name(key), ENTITIES.get(key, ""))
-        for key, _label, _help in ENTITY_FIELDS
-    }
+    return ENTITIES.copy()
 
 
 def get_ha_entity_fields() -> list[dict[str, str]]:

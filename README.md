@@ -14,3 +14,5 @@ The add-on itself lives in [bmw_wallboxproxy/config.yaml](bmw_wallboxproxy/confi
 
 - Home Assistant ingress UI on internal port `8099`
 - Modbus TCP on host port `502`
+
+Configure transport mode and Home Assistant entity mappings in the Home Assistant add-on configuration panel. The web UI is intended for dashboard and diagnostics.
