@@ -9,6 +9,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def read_ha_state(entity_id: str):
+    if not entity_id:
+        return None
+
     auth_token = config.get_ha_auth_token()
     headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
     url = f"{config.get_ha_api_base_url()}/states/{entity_id}"
@@ -41,6 +44,8 @@ def ha_poller() -> None:
     while not stop_event.is_set():
         updates = {}
         for key, entity in config.get_ha_entities().items():
+            if not entity:
+                continue
             value = read_ha_state(entity)
             if value is not None:
                 updates[key] = value

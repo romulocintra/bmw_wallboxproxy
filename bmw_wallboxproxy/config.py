@@ -126,19 +126,19 @@ ENTITY_FIELDS = (
 
 ENTITY_ENV_PREFIX = "HA_ENTITY_"
 ENTITY_DEFAULTS = {
-    "u1": "sensor.p1_meter_5c2faf0f0808_active_voltage_phase_1",
-    "u2": "sensor.p1_meter_5c2faf0f0808_active_voltage_phase_2",
-    "u3": "sensor.p1_meter_5c2faf0f0808_active_voltage_phase_3",
-    "i1": "sensor.p1_meter_5c2faf0f0808_active_current_phase_1",
-    "i2": "sensor.p1_meter_5c2faf0f0808_active_current_phase_2",
-    "i3": "sensor.p1_meter_5c2faf0f0808_active_current_phase_3",
-    "p_total": "sensor.ferroamp_grid_power_total",
-    "freq": "sensor.ferroamp_grid_frequency",
-    "p1": "sensor.p1_meter_5c2faf0f0808_active_power_phase_1",
-    "p2": "sensor.p1_meter_5c2faf0f0808_active_power_phase_2",
-    "p3": "sensor.p1_meter_5c2faf0f0808_active_power_phase_3",
-    "e_import_total": "sensor.p1_meter_5c2faf0f0808_total_power_import",
-    "e_export_total": "sensor.p1_meter_5c2faf0f0808_total_power_export",
+    "u1": "",
+    "u2": "",
+    "u3": "",
+    "i1": "",
+    "i2": "",
+    "i3": "",
+    "p_total": "",
+    "freq": "",
+    "p1": "",
+    "p2": "",
+    "p3": "",
+    "e_import_total": "",
+    "e_export_total": "",
 }
 
 
@@ -158,7 +158,7 @@ def _is_valid_url(value: str) -> bool:
     return bool(parsed.scheme and parsed.netloc)
 
 
-HA_URL = _env_str("HA_URL", "https://192.168.1.220:8123")
+HA_URL = _env_str("HA_URL", "")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 HA_USE_SUPERVISOR = _env_bool("HA_USE_SUPERVISOR", bool(SUPERVISOR_TOKEN))
