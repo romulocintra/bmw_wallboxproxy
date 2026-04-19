@@ -69,7 +69,8 @@ function byId(id) {
 
 function appEndpoint(path) {
   const relativePath = String(path).replace(/^\//, '');
-  return new URL(relativePath, document.baseURI).toString();
+  const basePath = `${window.location.pathname.replace(/\/?$/, '/')}`;
+  return `${basePath}${relativePath}`;
 }
 
 function setText(id, value) {

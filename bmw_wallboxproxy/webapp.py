@@ -38,6 +38,11 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 
+@app.route("/static/<path:filename>")
+def addon_static(filename: str):
+    return app.send_static_file(filename)
+
+
 def _ingress_base_path() -> str:
     base_path = request.headers.get("X-Ingress-Path") or request.script_root or "/"
     if not base_path.startswith("/"):
@@ -55,10 +60,10 @@ def _relative_path(path: str) -> str:
 def inject_template_paths():
     return {
         "ingress_base_path": _ingress_base_path(),
-        "dashboard_path": _relative_path(""),
-        "settings_path": _relative_path("settings"),
-        "static_css_path": _relative_path("static/app.css"),
-        "static_js_path": _relative_path("static/app.js"),
+        "dashboard_path": "./",
+        "settings_path": "./settings",
+        "static_css_path": "./static/app.css",
+        "static_js_path": "./static/app.js",
     }
 
 
