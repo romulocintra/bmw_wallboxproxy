@@ -36,10 +36,10 @@ def get_register_map() -> Dict[int, int]:
     i1 = get_value("i1")
     i2 = get_value("i2")
     i3 = get_value("i3")
-    p_total = get_value("p_total")
-    p1 = get_value("p1")
-    p2 = get_value("p2")
-    p3 = get_value("p3")
+    p_total = get_value("p_total") / 1000.0
+    p1 = get_value("p1") / 1000.0
+    p2 = get_value("p2") / 1000.0
+    p3 = get_value("p3") / 1000.0
     freq = get_value("freq")
     e_import_total = get_value("e_import_total")
     e_export_total = get_value("e_export_total")
