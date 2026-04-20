@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy
-version: "0.2.5"
+version: "0.2.6"
 slug: bmw_wallboxproxy
 description: Emulate a PRO380-style Modbus meter for a BMW wallbox using Home Assistant sensor data.
 arch:
