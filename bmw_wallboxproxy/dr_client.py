@@ -430,6 +430,7 @@ def tcp_server_loop() -> None:
             finally:
                 if conn:
                     try:
+                        _set_socket_linger_abort(conn)
                         conn.close()
                     except Exception:
                         pass
