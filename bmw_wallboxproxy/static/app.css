@@ -735,6 +735,42 @@ summary::-webkit-details-marker {
   }
 }
 
+.offset-control {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.offset-label {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+  max-width: 260px;
+}
+
+.offset-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.offset-status {
+  width: 100%;
+  min-height: 18px;
+  color: var(--muted);
+}
+
+.offset-status.ok {
+  color: var(--ok);
+}
+
+.offset-status.err {
+  color: var(--bad);
+}
+
 .output-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;

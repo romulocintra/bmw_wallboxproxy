@@ -11,17 +11,20 @@ from config import (
 from state import (
     get_float_word_order,
     get_compatibility_profile_name,
+    get_power_offset_watts,
     get_register_alias_mode,
     get_transport_mode,
     latest_values,
     modbus_log,
     net_log,
+    set_power_offset_watts,
     state_lock,
     stats,
     stats_lock,
     tcp_raw_log,
 )
 from register_map import get_output_values
+import config
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
@@ -80,6 +83,18 @@ def index():
 @app.route("/settings")
 def settings():
     return redirect(url_for("index"))
+
+
+@app.route("/api/power_offset", methods=["POST"])
+def api_set_power_offset():
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        watts = float(data["watts"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "missing or invalid 'watts' field"}), 400
+    set_power_offset_watts(watts)
+    config.save_env_setting("POWER_OFFSET_WATTS", str(watts))
+    return jsonify({"watts": watts})
 
 
 @app.route("/api/state")
