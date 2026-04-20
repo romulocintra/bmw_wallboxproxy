@@ -8,12 +8,14 @@ from config import (
     MODBUS_FLOAT_WORD_ORDER,
     MODBUS_REGISTER_ALIAS_MODE,
     MODBUS_TRANSPORT_MODE,
+    PHASE_ORDER,
     POWER_OFFSET_WATTS,
 )
 
 ALLOWED_TRANSPORT_MODES = ("rtu_over_tcp", "modbus_tcp")
 ALLOWED_FLOAT_WORD_ORDERS = ("abcd", "cdab")
 ALLOWED_REGISTER_ALIAS_MODES = ("exact", "alias_minus_1", "alias_plus_1", "alias_both")
+ALLOWED_PHASE_ORDERS = ("1,2,3", "1,3,2", "2,1,3", "2,3,1", "3,1,2", "3,2,1")
 COMPATIBILITY_PROFILES = {
     "pro380-default": {
         "transport_mode": "rtu_over_tcp",
@@ -49,6 +51,7 @@ transport_mode_generation = 0
 float_word_order = MODBUS_FLOAT_WORD_ORDER
 register_alias_mode = MODBUS_REGISTER_ALIAS_MODE
 power_offset_watts: float = POWER_OFFSET_WATTS
+phase_order: str = PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3"
 
 stats_lock = threading.Lock()
 stats = {
@@ -86,6 +89,7 @@ stats = {
     "compat_change_count": 0,
     "compatibility_profile": "custom",
     "power_offset_watts": POWER_OFFSET_WATTS,
+    "phase_order": PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3",
 }
 
 modbus_log = deque(maxlen=300)
@@ -216,6 +220,27 @@ def set_power_offset_watts(watts: float) -> None:
     with stats_lock:
         stats["power_offset_watts"] = float(watts)
     log_net(f"Power offset set to {watts:+.0f} W")
+
+
+def get_phase_order() -> str:
+    with state_lock:
+        return phase_order
+
+
+def set_phase_order(order: str) -> bool:
+    global phase_order
+    if order not in ALLOWED_PHASE_ORDERS:
+        raise ValueError(f"Unsupported phase order: {order}")
+    changed = False
+    with state_lock:
+        if phase_order != order:
+            phase_order = order
+            changed = True
+    with stats_lock:
+        stats["phase_order"] = order
+    if changed:
+        log_net(f"Phase order changed to {order}")
+    return changed
 
 
 def get_compatibility_profile_name() -> str:

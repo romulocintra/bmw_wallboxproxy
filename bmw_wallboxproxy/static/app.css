@@ -844,6 +844,19 @@ summary::-webkit-details-marker {
   font-size: 13px;
 }
 
+.phase-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.phase-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 @supports (height: 100dvh) {
   body,
   .page-shell {

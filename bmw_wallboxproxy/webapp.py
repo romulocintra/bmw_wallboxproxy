@@ -9,14 +9,17 @@ from config import (
     is_supervisor_ha_mode,
 )
 from state import (
+    ALLOWED_PHASE_ORDERS,
     get_float_word_order,
     get_compatibility_profile_name,
+    get_phase_order,
     get_power_offset_watts,
     get_register_alias_mode,
     get_transport_mode,
     latest_values,
     modbus_log,
     net_log,
+    set_phase_order,
     set_power_offset_watts,
     state_lock,
     stats,
@@ -83,6 +86,17 @@ def index():
 @app.route("/settings")
 def settings():
     return redirect(url_for("index"))
+
+
+@app.route("/api/phase_order", methods=["POST"])
+def api_set_phase_order():
+    data = request.get_json(force=True, silent=True) or {}
+    order = str(data.get("order", "")).strip()
+    if order not in ALLOWED_PHASE_ORDERS:
+        return jsonify({"error": f"invalid phase order, must be one of: {', '.join(ALLOWED_PHASE_ORDERS)}"}), 400
+    set_phase_order(order)
+    config.save_env_setting("PHASE_ORDER", order)
+    return jsonify({"order": order})
 
 
 @app.route("/api/power_offset", methods=["POST"])
