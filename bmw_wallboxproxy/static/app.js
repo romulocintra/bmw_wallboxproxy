@@ -1,5 +1,43 @@
 var autoRefreshEnabled = true;
 
+const OUTPUT_REGISTERS = [
+  { group: 'Voltage & Frequency' },
+  { addr: '0x5000', key: 'voltage_avg', label: 'Voltage avg', unit: 'V', decimals: 1 },
+  { addr: '0x5002', key: 'u1', label: 'Voltage L1', unit: 'V', decimals: 1 },
+  { addr: '0x5004', key: 'u2', label: 'Voltage L2', unit: 'V', decimals: 1 },
+  { addr: '0x5006', key: 'u3', label: 'Voltage L3', unit: 'V', decimals: 1 },
+  { addr: '0x5008', key: 'freq', label: 'Frequency', unit: 'Hz', decimals: 2 },
+  { group: 'Current' },
+  { addr: '0x500A', key: 'current_total', label: 'Current total', unit: 'A', decimals: 2 },
+  { addr: '0x500C', key: 'i1', label: 'Current L1', unit: 'A', decimals: 2 },
+  { addr: '0x500E', key: 'i2', label: 'Current L2', unit: 'A', decimals: 2 },
+  { addr: '0x5010', key: 'i3', label: 'Current L3', unit: 'A', decimals: 2 },
+  { group: 'Active Power' },
+  { addr: '0x5012', key: 'p_total', label: 'Total active power', unit: 'kW', decimals: 3 },
+  { addr: '0x5014', key: 'p1', label: 'Active power L1', unit: 'kW', decimals: 3 },
+  { addr: '0x5016', key: 'p2', label: 'Active power L2', unit: 'kW', decimals: 3 },
+  { addr: '0x5018', key: 'p3', label: 'Active power L3', unit: 'kW', decimals: 3 },
+  { group: 'Reactive Power' },
+  { addr: '0x501A', key: 'q_total', label: 'Total reactive power', unit: 'kvar', decimals: 3 },
+  { addr: '0x501C', key: 'q1', label: 'Reactive power L1', unit: 'kvar', decimals: 3 },
+  { addr: '0x501E', key: 'q2', label: 'Reactive power L2', unit: 'kvar', decimals: 3 },
+  { addr: '0x5020', key: 'q3', label: 'Reactive power L3', unit: 'kvar', decimals: 3 },
+  { group: 'Apparent Power' },
+  { addr: '0x5022', key: 's_total', label: 'Total apparent power', unit: 'kVA', decimals: 3 },
+  { addr: '0x5024', key: 's1', label: 'Apparent power L1', unit: 'kVA', decimals: 3 },
+  { addr: '0x5026', key: 's2', label: 'Apparent power L2', unit: 'kVA', decimals: 3 },
+  { addr: '0x5028', key: 's3', label: 'Apparent power L3', unit: 'kVA', decimals: 3 },
+  { group: 'Power Factor' },
+  { addr: '0x502A', key: 'pf_total', label: 'Power factor total', unit: '—', decimals: 3 },
+  { addr: '0x502C', key: 'pf1', label: 'Power factor L1', unit: '—', decimals: 3 },
+  { addr: '0x502E', key: 'pf2', label: 'Power factor L2', unit: '—', decimals: 3 },
+  { addr: '0x5030', key: 'pf3', label: 'Power factor L3', unit: '—', decimals: 3 },
+  { group: 'Energy' },
+  { addr: '0x6000', key: 'e_total', label: 'Total active energy', unit: 'kWh', decimals: 3 },
+  { addr: '0x600C', key: 'e_import', label: 'Forward active energy (import)', unit: 'kWh', decimals: 3 },
+  { addr: '0x6018', key: 'e_export', label: 'Reverse active energy (export)', unit: 'kWh', decimals: 3 },
+];
+
 const REGISTER_GROUPS = [
   { start: 0x5000, end: 0x5001, label: 'Voltage' },
   { start: 0x5002, end: 0x5003, label: 'Voltage L1' },
@@ -532,6 +570,7 @@ async function refreshData() {
     setBadge('hero_profile_badge', `Profile: ${stats.compatibility_profile}`, 'neutral');
     setBadge('hero_reachability_badge', stats.transport_reachability, reachabilityTone);
 
+    renderOutputTable(data.output);
     renderDecodedRequestFeed('modbus_decoded_log', buildDecodedRequestEntries(data.modbus_log));
     renderLogFeed('modbus_log', buildRawModbusEntries(data.modbus_log), 'Waiting for Modbus trace data...');
     setText('net_log', data.net_log.join('\n'));
@@ -542,6 +581,27 @@ async function refreshData() {
     setBadge('hero_connection_badge', 'Dashboard update failed', 'bad');
     setText('net_log', `Dashboard refresh failed: ${error.message}`);
   }
+}
+
+function renderOutputTable(output) {
+  const tbody = byId('output_table_body');
+  if (!tbody || !output) {
+    return;
+  }
+  tbody.innerHTML = OUTPUT_REGISTERS.map((reg) => {
+    if (reg.group) {
+      return `<tr class="out-group"><td colspan="4">${escapeHtml(reg.group)}</td></tr>`;
+    }
+    const val = output[reg.key];
+    const formatted = val === undefined ? '—' : val.toFixed(reg.decimals);
+    const negative = val !== undefined && val < 0;
+    return `<tr>
+      <td class="out-addr">${escapeHtml(reg.addr)}</td>
+      <td>${escapeHtml(reg.label)}</td>
+      <td class="out-val${negative ? ' negative' : ''}">${escapeHtml(formatted)}</td>
+      <td class="out-unit">${escapeHtml(reg.unit)}</td>
+    </tr>`;
+  }).join('');
 }
 
 function initializeControls() {

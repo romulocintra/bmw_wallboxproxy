@@ -735,6 +735,79 @@ summary::-webkit-details-marker {
   }
 }
 
+.output-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 4px;
+}
+
+.output-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.output-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 8px 14px;
+  border-bottom: 2px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.output-table td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.output-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.output-table tr.out-group td {
+  background: var(--bg-soft);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 5px 14px;
+}
+
+.output-table .out-addr {
+  font-family: Consolas, "SFMono-Regular", monospace;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.output-table .out-val {
+  font-family: Consolas, "SFMono-Regular", monospace;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.output-table .out-val.negative {
+  color: var(--bad);
+}
+
+.output-table .out-unit {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.output-empty {
+  padding: 18px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 @supports (height: 100dvh) {
   body,
   .page-shell {

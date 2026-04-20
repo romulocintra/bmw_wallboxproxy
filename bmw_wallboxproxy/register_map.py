@@ -4,6 +4,45 @@ from modbus_codec import float_to_words
 from state import get_float_word_order, get_register_alias_mode, latest_values, state_lock
 
 
+def get_output_values() -> dict:
+    with state_lock:
+        snap = latest_values.copy()
+
+    def get(name: str, default: float = 0.0) -> float:
+        return float(snap.get(name, default))
+
+    u1, u2, u3 = get("u1"), get("u2"), get("u3")
+    i1, i2, i3 = get("i1"), get("i2"), get("i3")
+    p_total = get("p_total") / 1000.0
+    p1 = get("p1") / 1000.0
+    p2 = get("p2") / 1000.0
+    p3 = get("p3") / 1000.0
+    freq = get("freq")
+    e_import = get("e_import_total")
+    e_export = get("e_export_total")
+
+    s_total = abs(p_total)
+    s1, s2, s3 = abs(p1), abs(p2), abs(p3)
+
+    return {
+        "voltage_avg": (u1 + u2 + u3) / 3.0,
+        "u1": u1, "u2": u2, "u3": u3,
+        "freq": freq,
+        "current_total": i1 + i2 + i3,
+        "i1": i1, "i2": i2, "i3": i3,
+        "p_total": p_total, "p1": p1, "p2": p2, "p3": p3,
+        "q_total": 0.0, "q1": 0.0, "q2": 0.0, "q3": 0.0,
+        "s_total": s_total, "s1": s1, "s2": s2, "s3": s3,
+        "pf_total": p_total / s_total if s_total else 0.0,
+        "pf1": p1 / s1 if s1 else 0.0,
+        "pf2": p2 / s2 if s2 else 0.0,
+        "pf3": p3 / s3 if s3 else 0.0,
+        "e_total": e_import + e_export,
+        "e_import": e_import,
+        "e_export": e_export,
+    }
+
+
 def get_register_map() -> Dict[int, int]:
     with state_lock:
         snap = latest_values.copy()
