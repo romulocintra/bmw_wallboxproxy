@@ -92,6 +92,25 @@
     </div>
   </section>
 
+  <section class="card panel phase-panel">
+    <div class="panel-head">
+      <div>
+        <h2>Phase order</h2>
+        <div class="panel-note">Remaps which HA input phase feeds each output L1/L2/L3 Modbus register. Default 1,2,3 is identity (no swap).</div>
+      </div>
+      <div class="badge neutral" id="phase_order_badge"><span class="badge-dot"></span><span>1,2,3</span></div>
+    </div>
+    <div class="phase-buttons">
+      <button class="phase-btn secondary" data-order="1,2,3" type="button">1 → 2 → 3</button>
+      <button class="phase-btn secondary" data-order="1,3,2" type="button">1 → 3 → 2</button>
+      <button class="phase-btn secondary" data-order="2,1,3" type="button">2 → 1 → 3</button>
+      <button class="phase-btn secondary" data-order="2,3,1" type="button">2 → 3 → 1</button>
+      <button class="phase-btn secondary" data-order="3,1,2" type="button">3 → 1 → 2</button>
+      <button class="phase-btn secondary" data-order="3,2,1" type="button">3 → 2 → 1</button>
+    </div>
+    <div class="offset-status small" id="phase_order_status"></div>
+  </section>
+
   <section class="main-grid">
     <div class="card panel">
       <div class="panel-head">

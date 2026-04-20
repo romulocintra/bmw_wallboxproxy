@@ -577,6 +577,10 @@ async function refreshData() {
       offsetInput.value = offsetWatts;
     }
 
+    const currentOrder = stats.phase_order || '1,2,3';
+    syncPhaseButtons(currentOrder);
+    setBadge('phase_order_badge', currentOrder, currentOrder !== '1,2,3' ? 'warn' : 'neutral');
+
     renderOutputTable(data.output);
     renderDecodedRequestFeed('modbus_decoded_log', buildDecodedRequestEntries(data.modbus_log));
     renderLogFeed('modbus_log', buildRawModbusEntries(data.modbus_log), 'Waiting for Modbus trace data...');
@@ -609,6 +613,37 @@ function renderOutputTable(output) {
       <td class="out-unit">${escapeHtml(reg.unit)}</td>
     </tr>`;
   }).join('');
+}
+
+async function applyPhaseOrder(order) {
+  const statusEl = byId('phase_order_status');
+  try {
+    const response = await fetch(appEndpoint('apiPhaseOrder'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order }),
+    });
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+    if (statusEl) {
+      statusEl.textContent = `Phase order set to ${order}`;
+      statusEl.className = 'offset-status small ok';
+    }
+    syncPhaseButtons(order);
+    setBadge('phase_order_badge', order, order !== '1,2,3' ? 'warn' : 'neutral');
+  } catch (error) {
+    if (statusEl) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.className = 'offset-status small err';
+    }
+  }
+}
+
+function syncPhaseButtons(order) {
+  document.querySelectorAll('.phase-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.order === order);
+  });
 }
 
 async function applyPowerOffset(watts) {
@@ -665,6 +700,12 @@ function initializeControls() {
       await applyPowerOffset(0);
     });
   }
+
+  document.querySelectorAll('.phase-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await applyPhaseOrder(btn.dataset.order);
+    });
+  });
 }
 
 initializeControls();

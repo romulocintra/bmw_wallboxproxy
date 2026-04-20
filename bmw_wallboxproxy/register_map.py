@@ -1,7 +1,13 @@
 from typing import Dict
 
 from modbus_codec import float_to_words
-from state import get_float_word_order, get_power_offset_watts, get_register_alias_mode, latest_values, state_lock
+from state import get_float_word_order, get_phase_order, get_power_offset_watts, get_register_alias_mode, latest_values, state_lock
+
+
+def _apply_phase_order(order: str, a: float, b: float, c: float) -> tuple:
+    idx = [int(x) - 1 for x in order.split(",")]
+    src = (a, b, c)
+    return src[idx[0]], src[idx[1]], src[idx[2]]
 
 
 def get_output_values() -> dict:
@@ -11,13 +17,15 @@ def get_output_values() -> dict:
     def get(name: str, default: float = 0.0) -> float:
         return float(snap.get(name, default))
 
-    u1, u2, u3 = get("u1"), get("u2"), get("u3")
-    i1, i2, i3 = get("i1"), get("i2"), get("i3")
+    order = get_phase_order()
+    u1, u2, u3 = _apply_phase_order(order, get("u1"), get("u2"), get("u3"))
+    i1, i2, i3 = _apply_phase_order(order, get("i1"), get("i2"), get("i3"))
     offset_kw = get_power_offset_watts() / 1000.0
     p_total = get("p_total") / 1000.0 + offset_kw
-    p1 = get("p1") / 1000.0 + offset_kw / 3.0
-    p2 = get("p2") / 1000.0 + offset_kw / 3.0
-    p3 = get("p3") / 1000.0 + offset_kw / 3.0
+    raw_p1 = get("p1") / 1000.0 + offset_kw / 3.0
+    raw_p2 = get("p2") / 1000.0 + offset_kw / 3.0
+    raw_p3 = get("p3") / 1000.0 + offset_kw / 3.0
+    p1, p2, p3 = _apply_phase_order(order, raw_p1, raw_p2, raw_p3)
     freq = get("freq")
     e_import = get("e_import_total")
     e_export = get("e_export_total")
@@ -70,17 +78,15 @@ def get_register_map() -> Dict[int, int]:
         if alias_mode in ("alias_plus_1", "alias_both"):
             put_words(addr + 1)
 
-    u1 = get_value("u1")
-    u2 = get_value("u2")
-    u3 = get_value("u3")
-    i1 = get_value("i1")
-    i2 = get_value("i2")
-    i3 = get_value("i3")
+    order = get_phase_order()
+    u1, u2, u3 = _apply_phase_order(order, get_value("u1"), get_value("u2"), get_value("u3"))
+    i1, i2, i3 = _apply_phase_order(order, get_value("i1"), get_value("i2"), get_value("i3"))
     offset_kw = get_power_offset_watts() / 1000.0
     p_total = get_value("p_total") / 1000.0 + offset_kw
-    p1 = get_value("p1") / 1000.0 + offset_kw / 3.0
-    p2 = get_value("p2") / 1000.0 + offset_kw / 3.0
-    p3 = get_value("p3") / 1000.0 + offset_kw / 3.0
+    raw_p1 = get_value("p1") / 1000.0 + offset_kw / 3.0
+    raw_p2 = get_value("p2") / 1000.0 + offset_kw / 3.0
+    raw_p3 = get_value("p3") / 1000.0 + offset_kw / 3.0
+    p1, p2, p3 = _apply_phase_order(order, raw_p1, raw_p2, raw_p3)
     freq = get_value("freq")
     e_import_total = get_value("e_import_total")
     e_export_total = get_value("e_export_total")
