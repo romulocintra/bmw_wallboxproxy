@@ -52,15 +52,6 @@ def _looks_like_mbap_frame(data: bytes) -> bool:
     return protocol_id == 0 and 2 <= length <= 260
 
 
-def _auto_detect_transport_mode(buffer: bytes, configured_mode: str) -> tuple[str, bool]:
-    """Return (effective_mode, was_overridden) based on the first bytes in the buffer."""
-    if configured_mode == "rtu_over_tcp" and _looks_like_mbap_frame(buffer):
-        return "modbus_tcp", True
-    if configured_mode == "modbus_tcp" and len(buffer) >= 8 and _looks_like_rtu_request(buffer[:8]):
-        return "rtu_over_tcp", True
-    return configured_mode, False
-
-
 def build_read_payload(slave_id: int, function_code: int, start_addr: int, quantity: int) -> bytes:
     reg_map = get_register_map()
     words = [reg_map.get(addr, 0) for addr in range(start_addr, start_addr + quantity)]
@@ -342,7 +333,7 @@ def tcp_server_loop() -> None:
                 log_net(f"Modbus client connected from {addr[0]}:{addr[1]} mode={active_mode}")
                 buffer = bytearray()
                 got_first_payload = False
-                transport_locked = False
+                framing_checked = False
 
                 while not stop_event.is_set():
                     try:
@@ -363,19 +354,20 @@ def tcp_server_loop() -> None:
                         with stats_lock:
                             stats["last_buffer_len"] = len(buffer)
 
-                        if not transport_locked and len(buffer) >= 6:
-                            detected_mode, was_overridden = _auto_detect_transport_mode(
-                                bytes(buffer), active_mode
-                            )
-                            transport_locked = True
-                            if was_overridden:
-                                log_net(
-                                    f"Auto-detected {detected_mode} framing (configured: {active_mode})"
-                                    f" — change Transport Mode setting to {detected_mode} to avoid this warning"
+                        if not framing_checked and len(buffer) >= 6:
+                            framing_checked = True
+                            if active_mode == "rtu_over_tcp" and _looks_like_mbap_frame(bytes(buffer)):
+                                raise ConnectionError(
+                                    "framing mismatch: charger is sending Modbus TCP (MBAP) frames"
+                                    " but Transport Mode is set to rtu_over_tcp"
+                                    " — change Transport Mode to modbus_tcp"
                                 )
-                                active_mode = detected_mode
-                                with stats_lock:
-                                    stats["transport_mode"] = active_mode
+                            if active_mode == "modbus_tcp" and len(buffer) >= 8 and _looks_like_rtu_request(bytes(buffer[:8])):
+                                raise ConnectionError(
+                                    "framing mismatch: charger is sending RTU-over-TCP frames"
+                                    " but Transport Mode is set to modbus_tcp"
+                                    " — change Transport Mode to rtu_over_tcp"
+                                )
 
                         log_modbus(f"BUF mode={active_mode} len={len(buffer)}")
 
