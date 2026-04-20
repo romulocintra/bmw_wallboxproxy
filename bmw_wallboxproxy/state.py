@@ -8,6 +8,7 @@ from config import (
     MODBUS_FLOAT_WORD_ORDER,
     MODBUS_REGISTER_ALIAS_MODE,
     MODBUS_TRANSPORT_MODE,
+    POWER_OFFSET_WATTS,
 )
 
 ALLOWED_TRANSPORT_MODES = ("rtu_over_tcp", "modbus_tcp")
@@ -47,6 +48,7 @@ transport_mode = MODBUS_TRANSPORT_MODE
 transport_mode_generation = 0
 float_word_order = MODBUS_FLOAT_WORD_ORDER
 register_alias_mode = MODBUS_REGISTER_ALIAS_MODE
+power_offset_watts: float = POWER_OFFSET_WATTS
 
 stats_lock = threading.Lock()
 stats = {
@@ -83,6 +85,7 @@ stats = {
     "register_alias_mode": MODBUS_REGISTER_ALIAS_MODE,
     "compat_change_count": 0,
     "compatibility_profile": "custom",
+    "power_offset_watts": POWER_OFFSET_WATTS,
 }
 
 modbus_log = deque(maxlen=300)
@@ -199,6 +202,20 @@ def set_register_alias_mode(alias_mode: str) -> bool:
     if changed:
         log_net(f"Register alias mode changed to {alias_mode}")
     return changed
+
+
+def get_power_offset_watts() -> float:
+    with state_lock:
+        return power_offset_watts
+
+
+def set_power_offset_watts(watts: float) -> None:
+    global power_offset_watts
+    with state_lock:
+        power_offset_watts = float(watts)
+    with stats_lock:
+        stats["power_offset_watts"] = float(watts)
+    log_net(f"Power offset set to {watts:+.0f} W")
 
 
 def get_compatibility_profile_name() -> str:

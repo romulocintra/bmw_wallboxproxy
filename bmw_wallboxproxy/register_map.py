@@ -1,7 +1,7 @@
 from typing import Dict
 
 from modbus_codec import float_to_words
-from state import get_float_word_order, get_register_alias_mode, latest_values, state_lock
+from state import get_float_word_order, get_power_offset_watts, get_register_alias_mode, latest_values, state_lock
 
 
 def get_output_values() -> dict:
@@ -13,10 +13,11 @@ def get_output_values() -> dict:
 
     u1, u2, u3 = get("u1"), get("u2"), get("u3")
     i1, i2, i3 = get("i1"), get("i2"), get("i3")
-    p_total = get("p_total") / 1000.0
-    p1 = get("p1") / 1000.0
-    p2 = get("p2") / 1000.0
-    p3 = get("p3") / 1000.0
+    offset_kw = get_power_offset_watts() / 1000.0
+    p_total = get("p_total") / 1000.0 + offset_kw
+    p1 = get("p1") / 1000.0 + offset_kw / 3.0
+    p2 = get("p2") / 1000.0 + offset_kw / 3.0
+    p3 = get("p3") / 1000.0 + offset_kw / 3.0
     freq = get("freq")
     e_import = get("e_import_total")
     e_export = get("e_export_total")
@@ -75,10 +76,11 @@ def get_register_map() -> Dict[int, int]:
     i1 = get_value("i1")
     i2 = get_value("i2")
     i3 = get_value("i3")
-    p_total = get_value("p_total") / 1000.0
-    p1 = get_value("p1") / 1000.0
-    p2 = get_value("p2") / 1000.0
-    p3 = get_value("p3") / 1000.0
+    offset_kw = get_power_offset_watts() / 1000.0
+    p_total = get_value("p_total") / 1000.0 + offset_kw
+    p1 = get_value("p1") / 1000.0 + offset_kw / 3.0
+    p2 = get_value("p2") / 1000.0 + offset_kw / 3.0
+    p3 = get_value("p3") / 1000.0 + offset_kw / 3.0
     freq = get_value("freq")
     e_import_total = get_value("e_import_total")
     e_export_total = get_value("e_export_total")

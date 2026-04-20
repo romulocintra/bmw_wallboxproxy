@@ -71,6 +71,27 @@
     <div class="badge neutral"><span class="badge-dot"></span><span>Dashboard only</span></div>
   </section>
 
+  <section class="card panel offset-panel">
+    <div class="panel-head">
+      <div>
+        <h2>Power offset</h2>
+        <div class="panel-note">Bias added to all power registers before they reach the charger. Negative = appear to export more (charger ramps up). Positive = appear to import more (charger slows down).</div>
+      </div>
+      <div class="badge neutral" id="offset_active_badge"><span class="badge-dot"></span><span>Offset: 0 W</span></div>
+    </div>
+    <div class="offset-control">
+      <label class="offset-label">
+        <span class="small">Offset (W)</span>
+        <input type="number" id="power_offset_input" value="0" step="100" placeholder="0">
+      </label>
+      <div class="offset-actions">
+        <button id="power_offset_apply" type="button">Apply</button>
+        <button id="power_offset_clear" type="button" class="secondary">Clear</button>
+      </div>
+      <div class="offset-status small" id="offset_status"></div>
+    </div>
+  </section>
+
   <section class="main-grid">
     <div class="card panel">
       <div class="panel-head">

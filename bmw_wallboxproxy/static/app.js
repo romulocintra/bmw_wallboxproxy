@@ -570,6 +570,13 @@ async function refreshData() {
     setBadge('hero_profile_badge', `Profile: ${stats.compatibility_profile}`, 'neutral');
     setBadge('hero_reachability_badge', stats.transport_reachability, reachabilityTone);
 
+    const offsetWatts = stats.power_offset_watts || 0;
+    setBadge('offset_active_badge', `Offset: ${offsetWatts >= 0 ? '+' : ''}${offsetWatts} W`, offsetWatts !== 0 ? 'warn' : 'neutral');
+    const offsetInput = byId('power_offset_input');
+    if (offsetInput && document.activeElement !== offsetInput) {
+      offsetInput.value = offsetWatts;
+    }
+
     renderOutputTable(data.output);
     renderDecodedRequestFeed('modbus_decoded_log', buildDecodedRequestEntries(data.modbus_log));
     renderLogFeed('modbus_log', buildRawModbusEntries(data.modbus_log), 'Waiting for Modbus trace data...');
@@ -604,15 +611,58 @@ function renderOutputTable(output) {
   }).join('');
 }
 
+async function applyPowerOffset(watts) {
+  const statusEl = byId('offset_status');
+  try {
+    const response = await fetch(appEndpoint('apiPowerOffset'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ watts }),
+    });
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+    if (statusEl) {
+      statusEl.textContent = `Applied ${watts >= 0 ? '+' : ''}${watts} W`;
+      statusEl.className = 'offset-status small ok';
+    }
+  } catch (error) {
+    if (statusEl) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.className = 'offset-status small err';
+    }
+  }
+}
+
 function initializeControls() {
   const refreshToggle = byId('refresh_toggle_button');
   if (refreshToggle) {
     refreshToggle.addEventListener('click', async () => {
-    autoRefreshEnabled = !autoRefreshEnabled;
-    updateRefreshWidgets();
-    if (autoRefreshEnabled) {
-      await refreshData();
-    }
+      autoRefreshEnabled = !autoRefreshEnabled;
+      updateRefreshWidgets();
+      if (autoRefreshEnabled) {
+        await refreshData();
+      }
+    });
+  }
+
+  const applyBtn = byId('power_offset_apply');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', async () => {
+      const input = byId('power_offset_input');
+      const watts = input ? parseFloat(input.value) || 0 : 0;
+      await applyPowerOffset(watts);
+    });
+  }
+
+  const clearBtn = byId('power_offset_clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', async () => {
+      const input = byId('power_offset_input');
+      if (input) {
+        input.value = '0';
+      }
+      await applyPowerOffset(0);
     });
   }
 }
