@@ -144,6 +144,30 @@
     </div>
   </section>
 
+  <section class="card panel">
+    <div class="panel-head">
+      <div>
+        <h2>Modbus output registers</h2>
+        <div class="panel-note">Values written to the Modbus registers and sent to the charger. Power is in kW/kVA (not W), energy in kWh.</div>
+      </div>
+    </div>
+    <div class="output-table-wrap">
+      <table class="output-table">
+        <thead>
+          <tr>
+            <th>Register</th>
+            <th>Name</th>
+            <th>Value</th>
+            <th>Unit</th>
+          </tr>
+        </thead>
+        <tbody id="output_table_body">
+          <tr><td colspan="4" class="output-empty">Waiting for data…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="diag-grid">
     <div class="card panel">
       <div class="panel-head">

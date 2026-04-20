@@ -21,6 +21,7 @@ from state import (
     stats_lock,
     tcp_raw_log,
 )
+from register_map import get_output_values
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
@@ -97,6 +98,7 @@ def api_state():
         {
             "values": values,
             "stats": st,
+            "output": get_output_values(),
             "modbus_log": ml,
             "net_log": nl,
             "tcp_raw_log": tl,
