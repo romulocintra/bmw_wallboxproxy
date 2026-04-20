@@ -141,7 +141,7 @@ def handle_rtu_request(frame: bytes) -> Optional[bytes]:
         with stats_lock:
             stats["crc_fail"] += 1
         log_modbus(f"ERR CRC fail recv=0x{recv_crc:04X} expected=0x{expected_crc:04X}")
-        return None
+        raise ConnectionError(f"CRC fail recv=0x{recv_crc:04X} expected=0x{expected_crc:04X} — disconnecting to resync buffer")
 
     slave_id = frame[0]
     function_code = frame[1]
