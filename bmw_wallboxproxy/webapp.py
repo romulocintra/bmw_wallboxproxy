@@ -13,14 +13,14 @@ from state import (
     get_float_word_order,
     get_compatibility_profile_name,
     get_phase_order,
-    get_power_offset_watts,
+    get_power_offset_override,
     get_register_alias_mode,
     get_transport_mode,
     latest_values,
     modbus_log,
     net_log,
     set_phase_order,
-    set_power_offset_watts,
+    set_power_offset_override,
     state_lock,
     stats,
     stats_lock,
@@ -102,11 +102,15 @@ def api_set_phase_order():
 @app.route("/api/power_offset", methods=["POST"])
 def api_set_power_offset():
     data = request.get_json(force=True, silent=True) or {}
+    if "watts" in data and data["watts"] is None:
+        set_power_offset_override(None)
+        config.save_env_setting("POWER_OFFSET_WATTS", "")
+        return jsonify({"watts": None})
     try:
         watts = float(data["watts"])
     except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "missing or invalid 'watts' field"}), 400
-    set_power_offset_watts(watts)
+        return jsonify({"error": "missing or invalid 'watts' field, send null to clear override"}), 400
+    set_power_offset_override(watts)
     config.save_env_setting("POWER_OFFSET_WATTS", str(watts))
     return jsonify({"watts": watts})
 

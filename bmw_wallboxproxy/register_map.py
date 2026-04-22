@@ -1,7 +1,7 @@
 from typing import Dict
 
 from modbus_codec import float_to_words
-from state import get_float_word_order, get_phase_order, get_power_offset_watts, get_register_alias_mode, latest_values, state_lock
+from state import get_float_word_order, get_phase_order, get_power_offset_override, get_register_alias_mode, latest_values, state_lock
 
 
 def _apply_phase_order(order: str, a: float, b: float, c: float) -> tuple:
@@ -20,7 +20,9 @@ def get_output_values() -> dict:
     order = get_phase_order()
     u1, u2, u3 = _apply_phase_order(order, get("u1"), get("u2"), get("u3"))
     i1, i2, i3 = _apply_phase_order(order, get("i1"), get("i2"), get("i3"))
-    offset_kw = get_power_offset_watts() / 1000.0
+    _override = get_power_offset_override()
+    offset_watts = _override if _override is not None else snap.get("power_offset", 0.0)
+    offset_kw = offset_watts / 1000.0
     p_total = get("p_total") / 1000.0 + offset_kw
     raw_p1 = get("p1") / 1000.0 + offset_kw / 3.0
     raw_p2 = get("p2") / 1000.0 + offset_kw / 3.0
@@ -81,7 +83,9 @@ def get_register_map() -> Dict[int, int]:
     order = get_phase_order()
     u1, u2, u3 = _apply_phase_order(order, get_value("u1"), get_value("u2"), get_value("u3"))
     i1, i2, i3 = _apply_phase_order(order, get_value("i1"), get_value("i2"), get_value("i3"))
-    offset_kw = get_power_offset_watts() / 1000.0
+    _override = get_power_offset_override()
+    offset_watts = _override if _override is not None else snap.get("power_offset", 0.0)
+    offset_kw = offset_watts / 1000.0
     p_total = get_value("p_total") / 1000.0 + offset_kw
     raw_p1 = get_value("p1") / 1000.0 + offset_kw / 3.0
     raw_p2 = get_value("p2") / 1000.0 + offset_kw / 3.0

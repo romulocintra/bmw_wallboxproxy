@@ -570,11 +570,14 @@ async function refreshData() {
     setBadge('hero_profile_badge', `Profile: ${stats.compatibility_profile}`, 'neutral');
     setBadge('hero_reachability_badge', stats.transport_reachability, reachabilityTone);
 
-    const offsetWatts = stats.power_offset_watts || 0;
-    setBadge('offset_active_badge', `Offset: ${offsetWatts >= 0 ? '+' : ''}${offsetWatts} W`, offsetWatts !== 0 ? 'warn' : 'neutral');
+    const offsetOverride = stats.power_offset_override;
+    const entityOffsetWatts = (data.values && data.values.power_offset) || 0;
+    const effectiveOffset = offsetOverride !== null && offsetOverride !== undefined ? offsetOverride : entityOffsetWatts;
+    const offsetSource = (offsetOverride !== null && offsetOverride !== undefined) ? 'Override' : 'Entity';
+    setBadge('offset_active_badge', `${offsetSource}: ${effectiveOffset >= 0 ? '+' : ''}${effectiveOffset} W`, effectiveOffset !== 0 ? 'warn' : 'neutral');
     const offsetInput = byId('power_offset_input');
     if (offsetInput && document.activeElement !== offsetInput) {
-      offsetInput.value = offsetWatts;
+      offsetInput.value = (offsetOverride !== null && offsetOverride !== undefined) ? offsetOverride : '';
     }
 
     const currentOrder = stats.phase_order || '1,2,3';
@@ -658,7 +661,11 @@ async function applyPowerOffset(watts) {
       throw new Error(`Server returned ${response.status}`);
     }
     if (statusEl) {
-      statusEl.textContent = `Applied ${watts >= 0 ? '+' : ''}${watts} W`;
+      if (watts === null) {
+        statusEl.textContent = 'Override cleared — using HA entity value';
+      } else {
+        statusEl.textContent = `Override set to ${watts >= 0 ? '+' : ''}${watts} W`;
+      }
       statusEl.className = 'offset-status small ok';
     }
   } catch (error) {
@@ -695,9 +702,9 @@ function initializeControls() {
     clearBtn.addEventListener('click', async () => {
       const input = byId('power_offset_input');
       if (input) {
-        input.value = '0';
+        input.value = '';
       }
-      await applyPowerOffset(0);
+      await applyPowerOffset(null);
     });
   }
 

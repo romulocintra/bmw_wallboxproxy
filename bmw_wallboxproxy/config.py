@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urlparse
 
 
@@ -86,6 +87,17 @@ def _env_float(name: str, default: float) -> float:
     return default
 
 
+def _env_float_any(name: str) -> Optional[float]:
+    """Read an env var as a float, accepting any sign. Returns None if unset or unparseable."""
+    raw = os.environ.get(name)
+    if not raw or not raw.strip():
+        return None
+    try:
+        return float(raw.strip())
+    except ValueError:
+        return None
+
+
 def _env_str(name: str, default: str = "") -> str:
     raw = os.environ.get(name)
     if raw is None:
@@ -138,6 +150,7 @@ ENTITY_FIELDS = (
     ("p3", "Power L3", "Home Assistant entity for phase 3 active power."),
     ("e_import_total", "Imported energy", "Home Assistant entity for total imported energy."),
     ("e_export_total", "Exported energy", "Home Assistant entity for total exported energy."),
+    ("power_offset", "Power offset", "Home Assistant entity for power offset in watts (e.g. an input_number helper). Added to all power readings before they reach the charger. Negative = charger sees more export and ramps up. Leave empty to use the manual override in the dashboard instead."),
 )
 
 ENTITY_ENV_PREFIX = "HA_ENTITY_"
@@ -155,6 +168,7 @@ ENTITY_DEFAULTS = {
     "p3": "",
     "e_import_total": "",
     "e_export_total": "",
+    "power_offset": "",
 }
 
 
@@ -197,7 +211,7 @@ HA_POLL_SECONDS = 1.0
 SOCKET_TIMEOUT = 2.0
 MODBUS_IDLE_DISCONNECT_SECONDS = _env_float("MODBUS_IDLE_DISCONNECT_SECONDS", 10.0)
 MODBUS_INITIAL_CONNECT_IDLE_SECONDS = _env_float("MODBUS_INITIAL_CONNECT_IDLE_SECONDS", 60.0)
-POWER_OFFSET_WATTS = _env_float("POWER_OFFSET_WATTS", 0.0)
+POWER_OFFSET_WATTS: Optional[float] = _env_float_any("POWER_OFFSET_WATTS")
 PHASE_ORDER = _env_str("PHASE_ORDER", "1,2,3")
 MODBUS_TCP_KEEPALIVE_IDLE = _env_int("MODBUS_TCP_KEEPALIVE_IDLE", 5)
 MODBUS_TCP_KEEPALIVE_INTERVAL = _env_int("MODBUS_TCP_KEEPALIVE_INTERVAL", 1)
@@ -328,4 +342,5 @@ DEFAULTS = {
     "p_total": 0.0, "freq": 50.0,
     "p1": 0.0, "p2": 0.0, "p3": 0.0,
     "e_import_total": 0.0, "e_export_total": 0.0,
+    "power_offset": 0.0,
 }
