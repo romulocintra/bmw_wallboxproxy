@@ -53,3 +53,39 @@ Practical consequences:
 - Phase mapping still matters: a wrong mapping can cause the charger to misidentify which phase is overloaded and throttle unnecessarily.
 
 With the correct phase order configured, the charger should run stable back-feeding sessions overnight without intervention.
+
+## Power Offset
+
+The power offset shifts all power readings by a fixed number of watts before they reach the charger. A negative offset makes the charger think the house is exporting more than it really is, so it ramps up charging or back-feeding. A positive offset does the opposite.
+
+The preferred way to control the offset is through a Home Assistant helper entity so you can change it from automations, dashboards, or scripts without touching the proxy add-on.
+
+### Create a helper in Home Assistant
+
+1. Go to **Settings → Devices & Services → Helpers**.
+2. Click **Create helper** and choose **Number**.
+3. Fill in the form:
+   - **Name**: `Wallbox power offset` (or anything you like)
+   - **Minimum**: `-10000`
+   - **Maximum**: `10000`
+   - **Step size**: `100`
+   - **Unit of measurement**: `W`
+4. Click **Create**.
+5. Note the entity ID — it will be something like `input_number.wallbox_power_offset`.
+
+### Wire it to the proxy
+
+1. Open the BMW Wallbox Proxy add-on in Home Assistant.
+2. Go to **Configuration**.
+3. Set **Power offset entity** to the entity ID from the step above (e.g. `input_number.wallbox_power_offset`).
+4. Click **Save** and restart the add-on.
+
+The proxy now polls the helper every second. Changing the helper value in HA immediately flows through to the charger on the next poll.
+
+### Manual override from the dashboard
+
+The proxy dashboard (accessible via the add-on ingress panel) has a **Power offset** card. Typing a value and clicking **Apply override** sets a runtime override that takes precedence over the HA helper. The badge shows which source is active: `Entity` or `Override`.
+
+Clicking **Clear override** removes the manual value and hands control back to the HA helper.
+
+Use the dashboard override when you need a quick temporary adjustment without touching the helper — for example during commissioning or fault investigation.
