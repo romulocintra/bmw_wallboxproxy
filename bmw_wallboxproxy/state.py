@@ -1,7 +1,7 @@
 import threading
 import time
 from collections import deque
-from typing import Dict
+from typing import Dict, Optional
 
 from config import (
     DEFAULTS,
@@ -50,7 +50,7 @@ transport_mode = MODBUS_TRANSPORT_MODE
 transport_mode_generation = 0
 float_word_order = MODBUS_FLOAT_WORD_ORDER
 register_alias_mode = MODBUS_REGISTER_ALIAS_MODE
-power_offset_watts: float = POWER_OFFSET_WATTS
+power_offset_override: Optional[float] = POWER_OFFSET_WATTS
 phase_order: str = PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3"
 
 stats_lock = threading.Lock()
@@ -88,7 +88,7 @@ stats = {
     "register_alias_mode": MODBUS_REGISTER_ALIAS_MODE,
     "compat_change_count": 0,
     "compatibility_profile": "custom",
-    "power_offset_watts": POWER_OFFSET_WATTS,
+    "power_offset_override": POWER_OFFSET_WATTS,
     "phase_order": PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3",
 }
 
@@ -208,18 +208,21 @@ def set_register_alias_mode(alias_mode: str) -> bool:
     return changed
 
 
-def get_power_offset_watts() -> float:
+def get_power_offset_override() -> Optional[float]:
     with state_lock:
-        return power_offset_watts
+        return power_offset_override
 
 
-def set_power_offset_watts(watts: float) -> None:
-    global power_offset_watts
+def set_power_offset_override(watts: Optional[float]) -> None:
+    global power_offset_override
     with state_lock:
-        power_offset_watts = float(watts)
+        power_offset_override = float(watts) if watts is not None else None
     with stats_lock:
-        stats["power_offset_watts"] = float(watts)
-    log_net(f"Power offset set to {watts:+.0f} W")
+        stats["power_offset_override"] = power_offset_override
+    if watts is None:
+        log_net("Power offset override cleared, using HA entity")
+    else:
+        log_net(f"Power offset override set to {watts:+.0f} W")
 
 
 def get_phase_order() -> str:
