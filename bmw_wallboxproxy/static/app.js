@@ -112,6 +112,11 @@ function setHtml(id, value) {
   }
 }
 
+function formatOffsetWatts(value) {
+  const watts = Number(value) || 0;
+  return `${watts >= 0 ? '+' : ''}${watts} W`;
+}
+
 function formatHexWord(value) {
   return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
 }
@@ -572,12 +577,16 @@ async function refreshData() {
 
     const offsetOverride = stats.power_offset_override;
     const entityOffsetWatts = (data.values && data.values.power_offset) || 0;
-    const effectiveOffset = offsetOverride !== null && offsetOverride !== undefined ? offsetOverride : entityOffsetWatts;
-    const offsetSource = (offsetOverride !== null && offsetOverride !== undefined) ? 'Override' : 'Entity';
-    setBadge('offset_active_badge', `${offsetSource}: ${effectiveOffset >= 0 ? '+' : ''}${effectiveOffset} W`, effectiveOffset !== 0 ? 'warn' : 'neutral');
+    const hasOverride = offsetOverride !== null && offsetOverride !== undefined;
+    const effectiveOffset = hasOverride ? offsetOverride : entityOffsetWatts;
+    const offsetSource = hasOverride ? 'Manual override' : 'HA entity';
+    setBadge('offset_active_badge', `${offsetSource}: ${formatOffsetWatts(effectiveOffset)}`, effectiveOffset !== 0 ? 'warn' : 'neutral');
+    setText('offset_entity_value', formatOffsetWatts(entityOffsetWatts));
+    setText('offset_override_value', hasOverride ? formatOffsetWatts(offsetOverride) : 'Not set');
+    setText('offset_effective_value', `${formatOffsetWatts(effectiveOffset)} (${offsetSource})`);
     const offsetInput = byId('power_offset_input');
     if (offsetInput && document.activeElement !== offsetInput) {
-      offsetInput.value = (offsetOverride !== null && offsetOverride !== undefined) ? offsetOverride : '';
+      offsetInput.value = hasOverride ? offsetOverride : '';
     }
 
     const currentOrder = stats.phase_order || '1,2,3';
@@ -692,7 +701,22 @@ function initializeControls() {
   if (applyBtn) {
     applyBtn.addEventListener('click', async () => {
       const input = byId('power_offset_input');
-      const watts = input ? parseFloat(input.value) || 0 : 0;
+      const statusEl = byId('offset_status');
+      if (!input || !input.value.trim()) {
+        if (statusEl) {
+          statusEl.textContent = 'Enter a debug override value or click "Clear override" to follow HA.';
+          statusEl.className = 'offset-status small err';
+        }
+        return;
+      }
+      const watts = Number(input.value);
+      if (Number.isNaN(watts)) {
+        if (statusEl) {
+          statusEl.textContent = 'Offset must be a numeric value in watts.';
+          statusEl.className = 'offset-status small err';
+        }
+        return;
+      }
       await applyPowerOffset(watts);
     });
   }

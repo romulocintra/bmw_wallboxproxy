@@ -1,3 +1,9 @@
+## 0.2.16
+
+- Show HA, manual override, and effective power offset values in the dashboard
+- Default to HA offset on startup and keep manual override as a runtime debug control
+- Improve override UX by preventing accidental empty-value submissions
+
 ## 0.2.14
 
 - Map power offset to HA entity instead of a fixed numeric value

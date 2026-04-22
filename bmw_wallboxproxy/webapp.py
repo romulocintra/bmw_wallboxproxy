@@ -104,14 +104,12 @@ def api_set_power_offset():
     data = request.get_json(force=True, silent=True) or {}
     if "watts" in data and data["watts"] is None:
         set_power_offset_override(None)
-        config.save_env_setting("POWER_OFFSET_WATTS", "")
         return jsonify({"watts": None})
     try:
         watts = float(data["watts"])
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "missing or invalid 'watts' field, send null to clear override"}), 400
     set_power_offset_override(watts)
-    config.save_env_setting("POWER_OFFSET_WATTS", str(watts))
     return jsonify({"watts": watts})
 
 
