@@ -323,6 +323,10 @@ Stats also track:
 
 The dashboard is built around these diagnostics and should be kept in sync with backend behavior.
 
+## Changelog
+
+When bumping the version in `bmw_wallboxproxy/config.yaml`, add a matching entry to `bmw_wallboxproxy/CHANGELOG.md` in the same commit. One entry per version, bullet points only, no fluff.
+
 ## Constraints for Future Changes
 
 When updating this project, assume these constraints unless the implementation is intentionally changed:
