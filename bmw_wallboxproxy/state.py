@@ -9,7 +9,6 @@ from config import (
     MODBUS_REGISTER_ALIAS_MODE,
     MODBUS_TRANSPORT_MODE,
     PHASE_ORDER,
-    POWER_OFFSET_WATTS,
 )
 
 ALLOWED_TRANSPORT_MODES = ("rtu_over_tcp", "modbus_tcp")
@@ -50,7 +49,7 @@ transport_mode = MODBUS_TRANSPORT_MODE
 transport_mode_generation = 0
 float_word_order = MODBUS_FLOAT_WORD_ORDER
 register_alias_mode = MODBUS_REGISTER_ALIAS_MODE
-power_offset_override: Optional[float] = POWER_OFFSET_WATTS
+power_offset_override: Optional[float] = None
 phase_order: str = PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3"
 
 stats_lock = threading.Lock()
@@ -88,7 +87,7 @@ stats = {
     "register_alias_mode": MODBUS_REGISTER_ALIAS_MODE,
     "compat_change_count": 0,
     "compatibility_profile": "custom",
-    "power_offset_override": POWER_OFFSET_WATTS,
+    "power_offset_override": None,
     "phase_order": PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3",
 }
 
