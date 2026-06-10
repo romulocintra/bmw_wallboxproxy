@@ -105,6 +105,7 @@ For rtu_over_tcp mode:
 
 - requests are expected as 8-byte RTU read frames
 - CRC is verified
+- CRC errors do not disconnect: leading garbage bytes are dropped until the buffer realigns on a CRC-valid frame (wireless bridges can inject or lose bytes)
 - replies include CRC
 
 For modbus_tcp mode:
@@ -120,7 +121,9 @@ The TCP server actively closes the connection when incoming traffic does not mat
 
 - one listening socket
 - one active client at a time
+- a new incoming connection preempts the active one: the stale connection is closed and the newest client is served immediately (a reconnecting charger or bridge is never queued behind a half-dead session)
 - SO_REUSEADDR enabled
+- TCP_NODELAY enabled on the client socket so small responses are sent without Nagle delay (the charger polls every 200 ms)
 - TCP keepalive configured where supported
 - idle disconnect supported via MODBUS_IDLE_DISCONNECT_SECONDS
 - transport mode changes force the active client to reconnect
