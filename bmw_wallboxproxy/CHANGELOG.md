@@ -1,3 +1,9 @@
+## 0.2.17
+
+- Enable TCP_NODELAY on the Modbus client socket so responses are never delayed by Nagle's algorithm
+- Recover from RTU CRC errors by resyncing the byte stream instead of disconnecting the charger
+- Serve a reconnecting charger or bridge immediately by replacing the stale connection instead of leaving it queued
+
 ## 0.2.16
 
 - Show HA, manual override, and effective power offset values in the dashboard

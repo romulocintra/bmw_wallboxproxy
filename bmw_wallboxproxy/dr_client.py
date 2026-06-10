@@ -1,8 +1,9 @@
+import select
 import socket
 import struct
 import time
 import threading
-from typing import Optional
+from typing import Optional, Tuple
 
 from config import (
     MODBUS_IDLE_DISCONNECT_SECONDS,
@@ -33,6 +34,12 @@ connection_lock = threading.Lock()
 active_server_socket: Optional[socket.socket] = None
 active_client_socket: Optional[socket.socket] = None
 
+# Poll intervals for the select-based loops. They must stay well below the
+# charger's 200 ms request interval so idle checks and new connections are
+# noticed without delaying request handling.
+ACCEPT_POLL_SECONDS = 0.5
+CLIENT_POLL_SECONDS = 0.25
+
 
 def _looks_like_rtu_request(frame: bytes) -> bool:
     if len(frame) != 8:
@@ -42,6 +49,24 @@ def _looks_like_rtu_request(frame: bytes) -> bool:
         return False
 
     return modbus_crc(frame[:-2]) == struct.unpack("<H", frame[-2:])[0]
+
+
+def _rtu_crc_valid(frame: bytes) -> bool:
+    return len(frame) == 8 and modbus_crc(frame[:-2]) == struct.unpack("<H", frame[-2:])[0]
+
+
+def _resync_rtu_buffer(buffer: bytearray) -> int:
+    """Drop leading garbage until the buffer starts with a CRC-valid 8-byte frame.
+
+    Wireless serial bridges can inject or lose single bytes; recovering in-stream
+    keeps the session alive instead of disconnecting the charger, which only
+    tolerates a few missed 200 ms polls before it errors out.
+    """
+    dropped = 0
+    while len(buffer) >= 8 and not _rtu_crc_valid(bytes(buffer[:8])):
+        del buffer[0]
+        dropped += 1
+    return dropped
 
 
 def _looks_like_mbap_frame(data: bytes) -> bool:
@@ -140,8 +165,8 @@ def handle_rtu_request(frame: bytes) -> Optional[bytes]:
     if recv_crc != expected_crc:
         with stats_lock:
             stats["crc_fail"] += 1
-        log_modbus(f"ERR CRC fail recv=0x{recv_crc:04X} expected=0x{expected_crc:04X}")
-        raise ConnectionError(f"CRC fail recv=0x{recv_crc:04X} expected=0x{expected_crc:04X} — disconnecting to resync buffer")
+        log_modbus(f"ERR CRC fail recv=0x{recv_crc:04X} expected=0x{expected_crc:04X} — frame dropped")
+        return None
 
     slave_id = frame[0]
     function_code = frame[1]
@@ -279,6 +304,13 @@ def _configure_client_socket(conn: socket.socket) -> None:
     conn.settimeout(SOCKET_TIMEOUT)
 
     try:
+        # Disable Nagle: responses are tiny and the charger expects them well
+        # within its 200 ms poll interval, so they must never be coalesced.
+        conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except OSError as exc:
+        log_net(f"TCP_NODELAY configuration skipped: {exc}")
+
+    try:
         conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
         idle_opt = getattr(socket, "TCP_KEEPIDLE", None)
@@ -310,12 +342,21 @@ def tcp_server_loop() -> None:
             f"Listening on {MODBUS_LISTEN_HOST}:{MODBUS_LISTEN_PORT} mode={active_mode}"
         )
 
+        pending_conn: Optional[Tuple[socket.socket, Tuple[str, int]]] = None
+
         while not stop_event.is_set():
             conn = None
             had_connection = False
             mode_generation = get_transport_mode_generation()
             try:
-                conn, addr = server.accept()
+                if pending_conn is not None:
+                    conn, addr = pending_conn
+                    pending_conn = None
+                else:
+                    readable, _, _ = select.select([server], [], [], ACCEPT_POLL_SECONDS)
+                    if not readable:
+                        continue
+                    conn, addr = server.accept()
                 had_connection = True
                 _register_client_socket(conn)
                 _configure_client_socket(conn)
@@ -341,6 +382,32 @@ def tcp_server_loop() -> None:
                         if current_generation != mode_generation:
                             log_net("Closing client connection to apply new transport mode")
                             break
+
+                        readable, _, _ = select.select([conn, server], [], [], CLIENT_POLL_SECONDS)
+
+                        if server in readable:
+                            new_conn, new_addr = server.accept()
+                            pending_conn = (new_conn, new_addr)
+                            log_net(
+                                f"New Modbus client from {new_addr[0]}:{new_addr[1]} — "
+                                "replacing existing connection so a reconnecting charger or bridge is served immediately"
+                            )
+                            raise ConnectionError("replaced by new client connection")
+
+                        if conn not in readable:
+                            elapsed = time.monotonic() - last_payload_at
+                            if got_first_payload:
+                                idle_limit = MODBUS_IDLE_DISCONNECT_SECONDS
+                                label = "established session idle"
+                            else:
+                                idle_limit = MODBUS_INITIAL_CONNECT_IDLE_SECONDS
+                                label = "no initial payload"
+                            if idle_limit > 0 and elapsed >= idle_limit:
+                                log_net(
+                                    f"Closing idle client connection after {elapsed:.1f}s ({label})"
+                                )
+                                raise ConnectionError(f"idle timeout: {label}")
+                            continue
 
                         data = conn.recv(256)
                         if not data:
@@ -376,6 +443,16 @@ def tcp_server_loop() -> None:
                             log_modbus(f"BUF waiting for complete {active_mode} frame")
 
                         while True:
+                            if active_mode == "rtu_over_tcp":
+                                dropped = _resync_rtu_buffer(buffer)
+                                if dropped:
+                                    with stats_lock:
+                                        stats["crc_fail"] += 1
+                                        stats["last_buffer_len"] = len(buffer)
+                                    log_modbus(
+                                        f"RESYNC dropped {dropped} garbage byte(s) to realign RTU stream"
+                                    )
+
                             next_frame_len = _next_frame_length(buffer, active_mode)
                             if next_frame_len == -1:
                                 log_net("Closing client connection because incoming traffic does not match selected transport mode")
@@ -402,18 +479,6 @@ def tcp_server_loop() -> None:
                                 log_tcp_raw(f"TCP TX {len(response)} bytes {response.hex(' ')}")
 
                     except socket.timeout:
-                        elapsed = time.monotonic() - last_payload_at
-                        if got_first_payload:
-                            idle_limit = MODBUS_IDLE_DISCONNECT_SECONDS
-                            label = "established session idle"
-                        else:
-                            idle_limit = MODBUS_INITIAL_CONNECT_IDLE_SECONDS
-                            label = "no initial payload"
-                        if idle_limit > 0 and elapsed >= idle_limit:
-                            log_net(
-                                f"Closing idle client connection after {elapsed:.1f}s ({label})"
-                            )
-                            raise ConnectionError(f"idle timeout: {label}")
                         continue
                     except ConnectionError as e:
                         log_net(f"Connection closed: {e}")
