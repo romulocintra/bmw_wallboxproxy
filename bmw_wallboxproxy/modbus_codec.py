@@ -29,8 +29,30 @@ def exception_response(slave_id: int, function_code: int, exc_code: int) -> byte
     return append_crc(bytes([slave_id, function_code | 0x80, exc_code]))
 
 
+# IEEE754 single precision cannot represent everything a Home Assistant sensor
+# may report. struct.pack(">f", ...) raises OverflowError outside this range and
+# a single bad reading would otherwise make every register build fail.
+FLOAT32_MAX = 3.4028234663852886e38
+
+
+def to_float32_safe(value: float) -> float:
+    """Coerce any numeric input into a value struct.pack(">f") accepts."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+    if number != number:  # NaN
+        return 0.0
+    if number > FLOAT32_MAX:
+        return FLOAT32_MAX
+    if number < -FLOAT32_MAX:
+        return -FLOAT32_MAX
+    return number
+
+
 def float_to_abcd_words(value: float) -> tuple[int, int]:
-    packed = struct.pack(">f", float(value))
+    packed = struct.pack(">f", to_float32_safe(value))
     return struct.unpack(">HH", packed)
 
 

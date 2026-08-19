@@ -52,21 +52,119 @@ def _looks_like_rtu_request(frame: bytes) -> bool:
 
 
 def _rtu_crc_valid(frame: bytes) -> bool:
-    return len(frame) == 8 and modbus_crc(frame[:-2]) == struct.unpack("<H", frame[-2:])[0]
+    return len(frame) >= 4 and modbus_crc(frame[:-2]) == struct.unpack("<H", frame[-2:])[0]
+
+
+# Total RTU request length (slave id + PDU + CRC) per function code. Read and
+# single-write requests are 8 bytes, which is what the charger sends in normal
+# operation, but a master may also probe with other function codes. Assuming
+# every request is 8 bytes long shreds those frames in the resync path and the
+# master gets no answer at all — masters retry a few times on silence and then
+# drop the link, whereas a Modbus exception reply is handled cleanly.
+_RTU_FIXED_REQUEST_LENGTHS = {
+    1: 8,   # read coils
+    2: 8,   # read discrete inputs
+    3: 8,   # read holding registers
+    4: 8,   # read input registers
+    5: 8,   # write single coil
+    6: 8,   # write single register
+    8: 8,   # diagnostics
+    7: 4,   # read exception status
+    11: 4,  # get comm event counter
+    12: 4,  # get comm event log
+    17: 4,  # report slave id
+}
+# Function codes whose length is carried in a byte-count field, mapped to the
+# index of that field within the frame.
+_RTU_BYTE_COUNT_INDEX = {
+    15: 6,  # write multiple coils
+    16: 6,  # write multiple registers
+    20: 2,  # read file record
+    21: 2,  # write file record
+}
+MAX_RTU_FRAME = 256
+MIN_RTU_FRAME = 4
+
+
+def _rtu_expected_length(buffer: bytearray) -> Optional[int]:
+    """Total length of the RTU request at the head of the buffer.
+
+    Returns None when the length cannot be determined yet, either because too
+    few bytes have arrived or because the function code is not one we know.
+    """
+    if len(buffer) < 2:
+        return None
+
+    function_code = buffer[1]
+
+    fixed = _RTU_FIXED_REQUEST_LENGTHS.get(function_code)
+    if fixed is not None:
+        return fixed
+
+    count_index = _RTU_BYTE_COUNT_INDEX.get(function_code)
+    if count_index is not None:
+        if len(buffer) <= count_index:
+            return None
+        return count_index + 1 + buffer[count_index] + 2
+
+    if function_code == 43:  # encapsulated interface transport
+        if len(buffer) < 3:
+            return None
+        if buffer[2] == 14:  # read device identification
+            return 7
+
+    return None
+
+
+def _take_rtu_frame(buffer: bytearray) -> Tuple[Optional[bytes], bool]:
+    """Pop the next complete RTU request off the buffer.
+
+    Returns (frame, need_more_data). A (None, False) result means the head of
+    the buffer is not the start of any valid frame and the caller must resync.
+    """
+    expected = _rtu_expected_length(buffer)
+    if expected is not None:
+        if expected > MAX_RTU_FRAME:
+            return None, False
+        if len(buffer) < expected:
+            return None, True
+        candidate = bytes(buffer[:expected])
+        if _rtu_crc_valid(candidate):
+            del buffer[:expected]
+            return candidate, False
+
+    # Unknown function code, or the declared length did not check out. Fall back
+    # to looking for any prefix that passes CRC before discarding bytes.
+    for length in range(MIN_RTU_FRAME, min(len(buffer), MAX_RTU_FRAME) + 1):
+        candidate = bytes(buffer[:length])
+        if _rtu_crc_valid(candidate):
+            del buffer[:length]
+            return candidate, False
+
+    if expected is None and len(buffer) < 8:
+        # Too little to judge: an unrecognised frame may still be in flight.
+        return None, True
+
+    return None, False
 
 
 def _resync_rtu_buffer(buffer: bytearray) -> int:
-    """Drop leading garbage until the buffer starts with a CRC-valid 8-byte frame.
+    """Drop one leading byte so the caller can retry frame extraction.
 
-    Wireless serial bridges can inject or lose single bytes; recovering in-stream
-    keeps the session alive instead of disconnecting the charger, which only
-    tolerates a few missed 200 ms polls before it errors out.
+    Wireless serial bridges can inject or lose single bytes; recovering
+    in-stream keeps the session alive instead of disconnecting the charger,
+    which only tolerates a few missed 200 ms polls before it errors out.
     """
-    dropped = 0
-    while len(buffer) >= 8 and not _rtu_crc_valid(bytes(buffer[:8])):
-        del buffer[0]
-        dropped += 1
-    return dropped
+    if len(buffer) > MAX_RTU_FRAME:
+        dropped = len(buffer) - MAX_RTU_FRAME
+        del buffer[:dropped]
+        return dropped
+
+    if not buffer:
+        return 0
+
+    del buffer[0]
+    return 1
 
 
 def _looks_like_mbap_frame(data: bytes) -> bool:
@@ -127,17 +225,24 @@ def _handle_decoded_request(
         log_modbus(f"IGN wrong slave id {slave_id}")
         return None
 
+    if function_code not in (3, 4):
+        # Answer with an exception rather than staying silent. A master retries
+        # on silence and drops the link after a few timeouts; it accepts an
+        # exception reply and moves on.
+        with stats_lock:
+            stats["unsupported_fc"] += 1
+        return build_exception_payload(slave_id, function_code, 1, "unsupported function code")
+
     if quantity < 1 or quantity > 125:
         with stats_lock:
             stats["illegal_quantity"] += 1
         return build_exception_payload(slave_id, function_code, 3, f"illegal quantity {quantity}")
 
-    if function_code in (3, 4):
+    try:
         return build_read_payload(slave_id, function_code, start_addr, quantity)
-
-    with stats_lock:
-        stats["unsupported_fc"] += 1
-    return build_exception_payload(slave_id, function_code, 1, "unsupported function code")
+    except Exception as exc:
+        # A single unrepresentable live value must not tear down the session.
+        return build_exception_payload(slave_id, function_code, 4, f"register build failed: {exc}")
 
 
 def handle_rtu_request(frame: bytes) -> Optional[bytes]:
@@ -148,7 +253,7 @@ def handle_rtu_request(frame: bytes) -> Optional[bytes]:
         stats["bytes_rx"] += len(frame)
         stats["last_rx"] = time.strftime("%H:%M:%S")
 
-    if len(frame) < 8:
+    if len(frame) < MIN_RTU_FRAME:
         with stats_lock:
             stats["short_frames"] += 1
         log_modbus("ERR frame too short")
@@ -170,8 +275,14 @@ def handle_rtu_request(frame: bytes) -> Optional[bytes]:
 
     slave_id = frame[0]
     function_code = frame[1]
-    start_addr = struct.unpack(">H", frame[2:4])[0]
-    quantity = struct.unpack(">H", frame[4:6])[0]
+    if len(frame) >= 8:
+        start_addr = struct.unpack(">H", frame[2:4])[0]
+        quantity = struct.unpack(">H", frame[4:6])[0]
+    else:
+        # Short requests (report slave id, read exception status, ...) carry no
+        # address or quantity; they are answered with an exception anyway.
+        start_addr = 0
+        quantity = 0
 
     log_modbus(f"CRC mode=rtu_over_tcp recv=0x{recv_crc:04X} expected=0x{expected_crc:04X}")
 
@@ -232,28 +343,52 @@ def handle_modbus_tcp_request(frame: bytes) -> Optional[bytes]:
     return _finalize_tcp_response(transaction_id, unit_id, payload)
 
 
-def _next_frame_length(buffer: bytearray, transport_mode: str) -> Optional[int]:
-    if transport_mode == "modbus_tcp":
-        if len(buffer) >= 8 and _looks_like_rtu_request(bytes(buffer[:8])):
-            log_modbus("ERR framing mismatch: received RTU-over-TCP request while mode=modbus_tcp")
-            return -1
-        if len(buffer) < 7:
-            return None
-        length = struct.unpack(">H", buffer[4:6])[0]
-        if length < 2 or length > 260:
-            log_modbus(f"ERR invalid MBAP length {length}; likely wrong transport mode")
-            return -1
-        return 6 + length
-
-    if len(buffer) < 8:
+def _next_tcp_frame_length(buffer: bytearray) -> Optional[int]:
+    """Length of the next MBAP frame, None if incomplete, -1 on a framing mismatch."""
+    if len(buffer) >= 8 and _looks_like_rtu_request(bytes(buffer[:8])):
+        log_modbus("ERR framing mismatch: received RTU-over-TCP request while mode=modbus_tcp")
+        return -1
+    if len(buffer) < 7:
         return None
-    return 8
+    length = struct.unpack(">H", buffer[4:6])[0]
+    if length < 2 or length > 260:
+        log_modbus(f"ERR invalid MBAP length {length}; likely wrong transport mode")
+        return -1
+    return 6 + length
 
 
 def handle_request(frame: bytes, transport_mode: str) -> Optional[bytes]:
     if transport_mode == "modbus_tcp":
         return handle_modbus_tcp_request(frame)
     return handle_rtu_request(frame)
+
+
+def _session_summary(
+    started_at: float,
+    requests_served: int,
+    responses_sent: int,
+    last_response_at: Optional[float],
+) -> str:
+    """Describe a finished session so a disconnect line says why it mattered.
+
+    "client disconnected" on its own is unactionable: it does not say whether
+    the session was healthy up to the last poll or had already stopped being
+    answered.
+    """
+    now = time.monotonic()
+    duration = now - started_at
+    if last_response_at is None:
+        last_reply = "never answered"
+    else:
+        last_reply = f"last reply {now - last_response_at:.1f}s ago"
+    unanswered = requests_served - responses_sent
+    detail = (
+        f" (session {duration:.1f}s, {requests_served} requests, "
+        f"{responses_sent} replies, {last_reply}"
+    )
+    if unanswered:
+        detail += f", {unanswered} unanswered"
+    return detail + ")"
 
 
 def _set_socket_linger_abort(sock: socket.socket) -> None:
@@ -347,6 +482,7 @@ def tcp_server_loop() -> None:
         while not stop_event.is_set():
             conn = None
             had_connection = False
+            abort_on_close = False
             mode_generation = get_transport_mode_generation()
             try:
                 if pending_conn is not None:
@@ -375,19 +511,28 @@ def tcp_server_loop() -> None:
                 buffer = bytearray()
                 got_first_payload = False
                 framing_checked = False
+                session_started_at = time.monotonic()
+                requests_served = 0
+                responses_sent = 0
+                last_response_at: Optional[float] = None
+                abort_on_close = False
 
                 while not stop_event.is_set():
                     try:
                         current_generation = get_transport_mode_generation()
                         if current_generation != mode_generation:
-                            log_net("Closing client connection to apply new transport mode")
+                            log_net(
+                                "Closing client connection to apply new transport mode"
+                                + _session_summary(session_started_at, requests_served, responses_sent, last_response_at)
+                            )
                             break
 
                         readable, _, _ = select.select([conn, server], [], [], CLIENT_POLL_SECONDS)
 
-                        if server in readable:
+                        if server in readable and conn not in readable:
                             new_conn, new_addr = server.accept()
                             pending_conn = (new_conn, new_addr)
+                            abort_on_close = True
                             log_net(
                                 f"New Modbus client from {new_addr[0]}:{new_addr[1]} — "
                                 "replacing existing connection so a reconnecting charger or bridge is served immediately"
@@ -438,39 +583,46 @@ def tcp_server_loop() -> None:
 
                         log_modbus(f"BUF mode={active_mode} len={len(buffer)}")
 
-                        next_frame_len = _next_frame_length(buffer, active_mode)
-                        if next_frame_len is None:
-                            log_modbus(f"BUF waiting for complete {active_mode} frame")
-
                         while True:
                             if active_mode == "rtu_over_tcp":
-                                dropped = _resync_rtu_buffer(buffer)
-                                if dropped:
-                                    with stats_lock:
-                                        stats["crc_fail"] += 1
-                                        stats["last_buffer_len"] = len(buffer)
-                                    log_modbus(
-                                        f"RESYNC dropped {dropped} garbage byte(s) to realign RTU stream"
-                                    )
+                                frame, need_more = _take_rtu_frame(buffer)
+                                if frame is None:
+                                    if need_more:
+                                        log_modbus("BUF waiting for complete rtu_over_tcp frame")
+                                        break
+                                    dropped = _resync_rtu_buffer(buffer)
+                                    if dropped:
+                                        with stats_lock:
+                                            stats["crc_fail"] += 1
+                                            stats["last_buffer_len"] = len(buffer)
+                                        log_modbus(
+                                            f"RESYNC dropped {dropped} garbage byte(s) to realign RTU stream"
+                                        )
+                                        continue
+                                    break
+                            else:
+                                next_frame_len = _next_tcp_frame_length(buffer)
+                                if next_frame_len == -1:
+                                    log_net("Closing client connection because incoming traffic does not match selected transport mode")
+                                    raise ConnectionError("transport mode mismatch")
+                                if next_frame_len is None or len(buffer) < next_frame_len:
+                                    log_modbus("BUF waiting for complete modbus_tcp frame")
+                                    break
+                                frame = bytes(buffer[:next_frame_len])
+                                del buffer[:next_frame_len]
 
-                            next_frame_len = _next_frame_length(buffer, active_mode)
-                            if next_frame_len == -1:
-                                log_net("Closing client connection because incoming traffic does not match selected transport mode")
-                                raise ConnectionError("transport mode mismatch")
-                            if next_frame_len is None or len(buffer) < next_frame_len:
-                                break
-
-                            frame = bytes(buffer[:next_frame_len])
-                            del buffer[:next_frame_len]
                             with stats_lock:
                                 stats["last_buffer_len"] = len(buffer)
 
                             if len(buffer):
                                 log_modbus(f"BUF trailing={len(buffer)} bytes after frame extraction")
 
+                            requests_served += 1
                             response = handle_request(frame, active_mode)
                             if response:
                                 conn.sendall(response)
+                                responses_sent += 1
+                                last_response_at = time.monotonic()
                                 with stats_lock:
                                     stats["tx_frames"] += 1
                                     stats["bytes_tx"] += len(response)
@@ -481,10 +633,10 @@ def tcp_server_loop() -> None:
                     except socket.timeout:
                         continue
                     except ConnectionError as e:
-                        log_net(f"Connection closed: {e}")
+                        log_net(f"Connection closed: {e}{_session_summary(session_started_at, requests_served, responses_sent, last_response_at)}")
                         break
                     except Exception as e:
-                        log_net(f"Connection error: {e}")
+                        log_net(f"Connection error: {e}{_session_summary(session_started_at, requests_served, responses_sent, last_response_at)}")
                         break
 
             except Exception as e:
@@ -495,7 +647,12 @@ def tcp_server_loop() -> None:
             finally:
                 if conn:
                     try:
-                        _set_socket_linger_abort(conn)
+                        # Only abort with RST when replacing a stale connection.
+                        # A linger-0 close discards anything still unacked, which
+                        # on a normal close can throw away the reply the charger
+                        # is waiting for instead of letting TCP retransmit it.
+                        if abort_on_close:
+                            _set_socket_linger_abort(conn)
                         conn.close()
                     except Exception:
                         pass

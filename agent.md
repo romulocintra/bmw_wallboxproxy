@@ -91,7 +91,12 @@ Only read operations are implemented:
 
 Unsupported function codes return Modbus exception code 1.
 Invalid quantities return Modbus exception code 3.
+A failure while building the register map returns Modbus exception code 4.
 Wrong slave id requests are ignored.
+
+Requests are never answered with silence except for a wrong slave id. A master
+retries on silence and drops the link after a few timeouts, but handles an
+exception reply cleanly.
 
 ### Slave Address
 
@@ -103,9 +108,13 @@ There is no multi-slave support.
 
 For rtu_over_tcp mode:
 
-- requests are expected as 8-byte RTU read frames
+- request length is decoded from the function code, not assumed to be 8 bytes
+- fixed-length codes (1, 2, 3, 4, 5, 6, 8) are 8 bytes; 7, 11, 12 and 17 are 4 bytes
+- 15, 16, 20 and 21 are sized from their byte-count field; 43/14 is 7 bytes
+- an unknown function code falls back to scanning for a CRC-valid prefix
 - CRC is verified
-- CRC errors do not disconnect: leading garbage bytes are dropped until the buffer realigns on a CRC-valid frame (wireless bridges can inject or lose bytes)
+- CRC errors do not disconnect: leading garbage bytes are dropped one at a time until the buffer realigns on a CRC-valid frame (wireless bridges can inject or lose bytes)
+- partial frames wait for more data instead of being discarded
 - replies include CRC
 
 For modbus_tcp mode:
@@ -127,6 +136,9 @@ The TCP server actively closes the connection when incoming traffic does not mat
 - TCP keepalive configured where supported
 - idle disconnect supported via MODBUS_IDLE_DISCONNECT_SECONDS
 - transport mode changes force the active client to reconnect
+- a request already in flight is served before handing over to a new client
+- connections close gracefully; a linger-0 RST abort is used only when preempting a stale connection, so a reply in flight is never discarded
+- every disconnect logs session duration, request count, reply count, and time since the last reply
 
 This matches a gateway-or-wallbox use case rather than a multi-client Modbus service.
 
@@ -233,10 +245,14 @@ using a bearer token.
 
 ### Polling Model
 
-- polling interval is currently 1 second
-- each configured entity is fetched independently
+- polling interval is currently 1 second, held as a fixed cadence rather than added on top of the cycle time
+- each configured entity is fetched independently over one pooled HTTP session
+- each read is bounded by HA_REQUEST_TIMEOUT_SECONDS (default 3 s)
 - successful reads update the shared value store
 - failed reads increment counters and are logged
+- unavailable and unknown entity states are counted separately from read errors
+- live values older than HA_STALE_AFTER_SECONDS (default 30 s) are flagged stale; the age is exposed in /api/state and on the dashboard, and stale/recovered transitions are logged once each
+- failed reads keep the last known value in memory, so the staleness flag is the only signal that the charger is being served old data
 
 ### Runtime-configurable HA Settings
 

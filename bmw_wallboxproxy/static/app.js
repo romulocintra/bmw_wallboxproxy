@@ -112,6 +112,15 @@ function setHtml(id, value) {
   }
 }
 
+function formatDataFreshness(stats) {
+  const age = stats.ha_data_age_seconds;
+  if (age === null || age === undefined) {
+    return 'No data yet';
+  }
+  const label = age < 60 ? `${age.toFixed(1)} s` : `${Math.round(age / 60)} min`;
+  return stats.ha_data_stale ? `${label} — STALE` : label;
+}
+
 function formatOffsetWatts(value) {
   const watts = Number(value) || 0;
   return `${watts >= 0 ? '+' : ''}${watts} W`;
@@ -564,6 +573,7 @@ async function refreshData() {
     setText('last_transaction_id', stats.last_transaction_id);
     setText('last_exception', stats.last_exception);
     setText('last_buffer_len', stats.last_buffer_len);
+    setText('ha_freshness', formatDataFreshness(stats));
 
     setText('hero_connection_text', formatConnectionSummary(stats));
     setText('hero_reachability_text', stats.transport_reachability);

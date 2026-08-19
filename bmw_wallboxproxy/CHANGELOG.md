@@ -1,3 +1,15 @@
+## 0.2.18
+
+- Answer non-read Modbus requests with a proper exception reply instead of silently dropping them; RTU frames are now length-decoded per function code rather than assumed to be 8 bytes
+- Reply with exception code 4 when a register build fails so one bad live value cannot tear down the charger session
+- Clamp out-of-range live values to the IEEE754 single-precision limits instead of raising
+- Log session duration, request count, reply count and time since the last reply on every disconnect
+- Detect and surface stale Home Assistant data: live data age is shown on the dashboard, exposed in /api/state, and logged when it goes stale or recovers
+- Reuse one pooled HTTP session for Home Assistant reads, bound each read with a configurable timeout, and hold a fixed poll cadence
+- Treat unavailable/unknown entity states as unavailable rather than read errors
+- Close connections gracefully and only send RST when preempting a stale connection, so a reply in flight is never discarded
+- Serve a request already in flight before handing over to a newly connected client
+
 ## 0.2.17
 
 - Enable TCP_NODELAY on the Modbus client socket so responses are never delayed by Nagle's algorithm

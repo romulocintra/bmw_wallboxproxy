@@ -56,6 +56,11 @@ stats_lock = threading.Lock()
 stats = {
     "ha_reads_ok": 0,
     "ha_reads_fail": 0,
+    "ha_entities_unavailable": 0,
+    "ha_last_update": "-",
+    "ha_data_age_seconds": None,
+    "ha_data_stale": False,
+    "ha_poll_cycle_seconds": None,
     "tcp_connects": 0,
     "tcp_disconnects": 0,
     "tcp_accept_errors": 0,
@@ -91,6 +96,8 @@ stats = {
     "phase_order": PHASE_ORDER if PHASE_ORDER in ALLOWED_PHASE_ORDERS else "1,2,3",
 }
 
+ha_last_update_monotonic: Optional[float] = None
+
 modbus_log = deque(maxlen=300)
 net_log = deque(maxlen=300)
 tcp_raw_log = deque(maxlen=500)
@@ -115,6 +122,32 @@ def log_tcp_raw(msg: str) -> None:
     entry = f"{_ts()}  {msg}"
     with stats_lock:
         tcp_raw_log.appendleft(entry)
+
+
+def mark_ha_update(cycle_seconds: Optional[float] = None) -> None:
+    """Record that at least one live value was refreshed successfully."""
+    global ha_last_update_monotonic
+    with state_lock:
+        ha_last_update_monotonic = time.monotonic()
+    with stats_lock:
+        stats["ha_last_update"] = _ts()
+        stats["ha_data_age_seconds"] = 0.0
+        if cycle_seconds is not None:
+            stats["ha_poll_cycle_seconds"] = round(cycle_seconds, 3)
+
+
+def get_ha_data_age_seconds() -> Optional[float]:
+    """Seconds since the last successful Home Assistant refresh, None if never."""
+    with state_lock:
+        last = ha_last_update_monotonic
+    if last is None:
+        return None
+    return time.monotonic() - last
+
+
+def set_ha_data_stale(stale: bool) -> None:
+    with stats_lock:
+        stats["ha_data_stale"] = stale
 
 
 def get_transport_mode() -> str:

@@ -10,6 +10,7 @@ from config import (
 )
 from state import (
     ALLOWED_PHASE_ORDERS,
+    get_ha_data_age_seconds,
     get_float_word_order,
     get_compatibility_profile_name,
     get_phase_order,
@@ -122,6 +123,8 @@ def api_state():
         ml = list(modbus_log)
         nl = list(net_log)
         tl = list(tcp_raw_log)
+    age = get_ha_data_age_seconds()
+    st["ha_data_age_seconds"] = None if age is None else round(age, 1)
     reachability_code, reachability_label = _transport_reachability(st)
     st["transport_reachability_code"] = reachability_code
     st["transport_reachability"] = reachability_label
