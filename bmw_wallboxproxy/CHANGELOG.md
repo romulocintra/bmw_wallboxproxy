@@ -1,3 +1,11 @@
+## 0.2.23
+
+- Add an optional PRO2 test mode for hardware compatibility diagnostics.
+- When enabled with `meter_model: inepro_pro2`, the proxy cycles deterministic single-phase current values: 0, 6, 10, 16, 20, 25, 32, 25, 20, 16, 10 and 6 A.
+- Generate coherent 230 V / 50 Hz / unity-PF power values alongside the current sequence.
+- Advance the sequence per Modbus register-map request so the BMW Wallbox can be observed against changing meter readings without Home Assistant sensor data.
+- Add regression tests and add-on configuration wiring for `test_mode`.
+
 ## 0.2.22
 
 - Fix add-on configuration wiring so `meter_model` is passed from the Home Assistant add-on options into the runtime.
