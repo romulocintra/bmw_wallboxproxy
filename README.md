@@ -39,16 +39,16 @@ Signed values are handled according to the B23 register definition.
 
 ## Parallel installation with the original add-on
 
-This fork deliberately uses a different Home Assistant add-on name/slug and a different host TCP port:
+This fork deliberately uses a different Home Assistant add-on name and slug:
 
 ```text
 Name: BMW Wallbox Proxy (Multi-Meter)
 Slug: bmw_wallboxproxy_multimeter
-Host TCP port: 1502
+Host TCP port: 502
 Container TCP port: 502
 ```
 
-Home Assistant requires an add-on slug to be unique within its repository, and the add-on's exposed host port also has to be available. The dedicated slug and port allow the fork to be installed and run without replacing the original add-on. citeturn0search0turn0search3
+The different slug allows the fork to be installed separately from the original add-on. Both add-ons use the standard host TCP port `502`, so **only one of them should be running at a time**.
 
 ### Install the fork
 
@@ -63,18 +63,7 @@ https://github.com/romulocintra/bmw_wallboxproxy
 4. Refresh the store.
 5. Install **BMW Wallbox Proxy (Multi-Meter)**.
 
-The original add-on can remain installed separately.
-
-### Important: host port
-
-The original add-on exposes Modbus TCP on host port `502`. This fork exposes the same internal service on host port `1502`:
-
-```text
-Original:  <HA host>:502
-Fork:      <HA host>:1502
-```
-
-For a test setup using the Waveshare adapter, point the Waveshare TCP client at `<HA host>:1502` when using this fork.
+The original add-on can remain installed separately, but stop it before starting this fork if it is using port `502`.
 
 ## Recommended Waveshare setup
 
@@ -97,7 +86,7 @@ Waveshare RS485 → Ethernet
       ▼
 BMW Wallbox Proxy (Multi-Meter)
       │
-      │ TCP :1502
+      │ TCP :502
       ▼
 Home Assistant
 ```
@@ -227,7 +216,7 @@ Check, in order:
 7. The proxy returns a response with a valid CRC.
 8. PRO380/PRO2 responses contain FLOAT32 ABCD data.
 9. Janitza responses use B23 scaled integers rather than FLOAT32.
-10. If using the fork alongside the original add-on, the Waveshare TCP destination is `<HA host>:1502`.
+10. The correct add-on is running and listening on host port `502`.
 
 A healthy PRO380/PRO2 exchange should look like:
 
