@@ -65,6 +65,22 @@ def _build_model_values(values: dict, model: str) -> dict:
     if model == "janitza_b23":
         for key in ("p_total", "p1", "p2", "p3", "s_total", "s1", "s2", "s3"):
             model_values[key] = values[key] * 1000.0
+    elif model == "inepro_pro2":
+        # PRO2 is physically single-phase. Ignore any accidental L2/L3 HA
+        # entities and make the aggregate values unambiguously L1-only.
+        model_values["voltage_avg"] = values["u1"]
+        model_values["u2"] = 0.0
+        model_values["u3"] = 0.0
+        model_values["current_total"] = values["i1"]
+        model_values["i2"] = 0.0
+        model_values["i3"] = 0.0
+        model_values["p2"] = 0.0
+        model_values["p3"] = 0.0
+        model_values["q1"] = model_values["q2"] = model_values["q3"] = 0.0
+        model_values["s1"] = values["p1"]
+        model_values["s2"] = model_values["s3"] = 0.0
+        model_values["pf1"] = values["pf1"]
+        model_values["pf2"] = model_values["pf3"] = 0.0
     return model_values
 
 
@@ -73,17 +89,15 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
         return regs
 
     aliased = dict(regs)
-    # Preserve the old behavior: alias the complete two-register FLOAT32
-    # value at an adjacent start address. Do this only for the known base
-    # addresses, rather than iterating every word and creating overlapping
-    # aliases.
     float_addresses = (
         0x5000, 0x5002, 0x5004, 0x5006, 0x5008, 0x500A, 0x500C, 0x500E,
         0x5010, 0x5012, 0x5014, 0x5016, 0x5018, 0x501A, 0x501C, 0x501E,
         0x5020, 0x5022, 0x5024, 0x5026, 0x5028, 0x502A, 0x502C, 0x502E,
         0x5030, 0x6000, 0x6002, 0x6004, 0x6006, 0x6008, 0x600A, 0x600C,
         0x600E, 0x6010, 0x6012, 0x6014, 0x6016, 0x6018, 0x601A, 0x601C,
-        0x601E, 0x6020, 0x6022,
+        0x601E, 0x6020, 0x6022, 0x6024, 0x6026, 0x6028, 0x602A, 0x602C,
+        0x602E, 0x6030, 0x6032, 0x6034, 0x6036, 0x6038, 0x603A, 0x603C,
+        0x603E, 0x6040, 0x6042, 0x6044, 0x6046, 0x6049,
     )
     for addr in float_addresses:
         if addr not in regs or addr + 1 not in regs:
@@ -103,8 +117,6 @@ def get_register_map() -> Dict[int, int]:
     values = _snapshot_output_values()
     regs = build_model_register_map(model, _build_model_values(values, model), get_float_word_order())
 
-    # Janitza's addresses are defined by its protocol and must never inherit
-    # the legacy Inepro compatibility aliases.
     if model in ("inepro_pro380", "inepro_pro2"):
         regs = _apply_legacy_aliases(regs, get_register_alias_mode())
     return regs
