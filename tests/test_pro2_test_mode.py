@@ -1,3 +1,4 @@
+import math
 import struct
 
 import register_map
@@ -43,7 +44,7 @@ def test_pro2_test_mode_changes_modbus_current_without_home_assistant(monkeypatc
     assert _float_from_registers(first, 0x500C) == 0.0
     assert _float_from_registers(second, 0x500C) == 6.0
     assert _float_from_registers(second, 0x5002) == 230.0
-    assert _float_from_registers(second, 0x5012) == 1.38
+    assert math.isclose(_float_from_registers(second, 0x5012), 1.38, rel_tol=1e-6)
 
 
 def test_test_mode_is_ignored_for_other_meter_models(monkeypatch):
