@@ -75,8 +75,6 @@ METER_PROFILES = {
     },
 }
 
-ENTITY_LABELS = {key: label for key, label, _help in config.ENTITY_FIELDS}
-
 
 def _profile_view(model: str) -> dict:
     profile = METER_PROFILES.get(model, METER_PROFILES["inepro_pro380"])
@@ -156,7 +154,13 @@ def _transport_reachability(st: dict) -> tuple[str, str]:
 
 @app.route("/")
 def index():
-    return render_template("dashboard.html", active_page="dashboard")
+    model = get_meter_model()
+    return render_template(
+        "dashboard.html",
+        active_page="dashboard",
+        meter_model=model,
+        meter_profile=_profile_view(model),
+    )
 
 
 @app.route("/settings")
