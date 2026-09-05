@@ -1,7 +1,7 @@
 name: BMW Wallbox Proxy
-version: "0.2.18"
+version: "0.2.19"
 slug: bmw_wallboxproxy
-description: Emulate a PRO380-style Modbus meter for a BMW wallbox using Home Assistant sensor data.
+description: Emulate an Inepro or Janitza Modbus meter for a BMW wallbox using Home Assistant sensor data.
 arch:
   - aarch64
   - amd64
@@ -15,7 +15,7 @@ stage: experimental
 ingress: true
 ingress_port: 8099
 homeassistant_api: true
-panel_title: BMW Wallbox 
+panel_title: BMW Wallbox
 panel_icon: mdi:ev-station
 ports:
   502/tcp: 502
@@ -23,6 +23,7 @@ ports_description:
   502/tcp: BMW wallbox Modbus TCP listener
 options:
   ha_token: ""
+  meter_model: inepro_pro380
   transport_mode: rtu_over_tcp
   float_word_order: abcd
   register_alias_mode: exact
@@ -42,6 +43,7 @@ options:
   power_offset_entity: ""
 schema:
   ha_token: "password?"
+  meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23)"
   transport_mode: "list(rtu_over_tcp|modbus_tcp)"
   float_word_order: "list(abcd|cdab)"
   register_alias_mode: "list(exact|alias_minus_1|alias_plus_1|alias_both)"
