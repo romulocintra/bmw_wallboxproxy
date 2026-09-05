@@ -14,6 +14,7 @@ export HA_TOKEN="$(bashio::config 'ha_token')"
 export HA_URL=http://supervisor/core/api
 export HA_VERIFY_TLS=false
 export HA_USE_SUPERVISOR=true
+export METER_MODEL="$(bashio::config 'meter_model')"
 export MODBUS_TRANSPORT_MODE="$(bashio::config 'transport_mode')"
 export MODBUS_FLOAT_WORD_ORDER="$(bashio::config 'float_word_order')"
 export MODBUS_REGISTER_ALIAS_MODE="$(bashio::config 'register_alias_mode')"
@@ -35,5 +36,6 @@ export HA_ENTITY_POWER_OFFSET="$(bashio::config 'power_offset_entity')"
 bashio::log.info "Starting BMW Wallbox Proxy add-on"
 bashio::log.info "Web UI is served over Home Assistant ingress on internal HTTP port 8099"
 bashio::log.info "Runtime settings are sourced from the Home Assistant add-on configuration"
+bashio::log.info "Meter model: ${METER_MODEL}"
 
 exec /opt/venv/bin/python /app/app.py
