@@ -78,8 +78,13 @@ def test_register_map_pro2_forces_single_phase(monkeypatch):
 
 def test_legacy_alias_mode_is_not_applied_to_janitza(monkeypatch):
     _set_values(monkeypatch, "janitza_b23")
+    exact_regs = register_map.get_register_map()
     monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "alias_both")
 
     regs = register_map.get_register_map()
-    assert 0x5B0B not in regs
-    assert 0x5B0D in regs
+
+    # 0x5B0B is the naturally adjacent low word of the documented 0x5B0A
+    # voltage field, so it must exist. The regression check is that enabling
+    # legacy aliases does not alter the native Janitza map.
+    assert regs[0x5B0B] == exact_regs[0x5B0B]
+    assert regs[0x5B0D] == exact_regs[0x5B0D]
