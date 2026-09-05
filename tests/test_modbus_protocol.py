@@ -8,7 +8,7 @@ if str(PACKAGE_DIR) not in sys.path:
 
 import config
 import dr_client
-import state
+import register_map
 from modbus_codec import append_crc, modbus_crc
 
 
@@ -27,8 +27,7 @@ def _response_words(frame):
 
 def _set_values(monkeypatch, meter_model):
     monkeypatch.setattr(config, "METER_MODEL", meter_model)
-    monkeypatch.setattr(config, "SLAVE_ID", 1)
-    monkeypatch.setattr(state, "latest_values", {
+    monkeypatch.setattr(register_map, "latest_values", {
         "u1": 230.0,
         "u2": 0.0,
         "u3": 0.0,
