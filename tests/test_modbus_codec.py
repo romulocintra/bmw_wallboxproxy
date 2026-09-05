@@ -1,3 +1,4 @@
+import math
 import struct
 import sys
 from pathlib import Path
@@ -37,7 +38,8 @@ def test_float_word_orders_are_explicit():
     cdab = float_to_words(value, "cdab")
 
     assert cdab == (abcd[1], abcd[0])
-    assert struct.unpack(">f", struct.pack(">HH", *abcd))[0] == value
+    encoded = struct.unpack(">f", struct.pack(">HH", *abcd))[0]
+    assert math.isclose(encoded, value, rel_tol=1e-6)
 
 
 def test_float32_safe_clamps_invalid_values():
