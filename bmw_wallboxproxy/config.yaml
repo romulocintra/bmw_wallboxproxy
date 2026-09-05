@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy (Multi-Meter)
-version: "0.2.20"
+version: "0.2.21"
 slug: bmw_wallboxproxy_multimeter
 description: Emulate an Inepro or Janitza Modbus meter for a BMW wallbox using Home Assistant sensor data.
 arch:
