@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}Settings | BMW Meter Emulator{% endblock %}
+{% block title %}Settings | BMW Wallbox Multi-Meter{% endblock %}
 
 {% block content %}
   <section class="card hero hero-settings">
     <div class="hero-top">
       <div class="hero-copy">
-        <div class="eyebrow">Configuration moved</div>
-        <h1>Use the Home Assistant add-on config panel</h1>
-        <p>Transport mode, compatibility settings, Home Assistant token, and all entity mappings are now configured directly in the Home Assistant add-on interface instead of this web page.</p>
+        <div class="eyebrow">Meter profile</div>
+        <h1>{{ meter_profile.label }}</h1>
+        <p>The selected profile defines the Modbus register map and encoding presented to the BMW Wallbox. The profile must match the meter model selected in the BMW Installation App.</p>
       </div>
       <div class="refresh-box compact-summary">
         <div class="refresh-row stacked-row">
           <div>
-            <div class="tiny-label">Current transport</div>
-            <div class="refresh-value" id="hero_transport_mode">-</div>
+            <div class="tiny-label">Selected model</div>
+            <div class="refresh-value monospace">{{ meter_model }}</div>
           </div>
           <div>
-            <div class="tiny-label">Compatibility profile</div>
-            <div class="refresh-value" id="compatibility_profile">-</div>
+            <div class="tiny-label">Phases</div>
+            <div class="refresh-value">{{ meter_profile.phases }}</div>
           </div>
         </div>
-        <div class="badge-row"><div class="badge neutral" id="hero_connection_badge"><span class="badge-dot"></span><span>Waiting for client</span></div></div>
+        <div class="badge-row"><div class="badge neutral"><span class="badge-dot"></span><span>{{ meter_profile.encoding }} · {{ meter_profile.byte_order }}</span></div></div>
       </div>
     </div>
   </section>
@@ -29,31 +29,81 @@
   <section class="card panel">
     <div class="panel-head">
       <div>
-        <h2>Current add-on configuration model</h2>
-        <div class="panel-note">The add-on now reads its effective configuration from Home Assistant add-on options at startup. This page is intentionally read-only.</div>
+        <h2>Profile reference</h2>
+        <div class="panel-note">Choose the profile that corresponds exactly to the meter type configured in the BMW Wallbox Installation App. This is separate from the transport/compatibility settings.</div>
       </div>
     </div>
 
-    <div class="controls-stack">
-      <div class="control-box">
-        <div class="subheading">Connection mode</div>
-        <div class="note">Home Assistant API auth mode: <span class="monospace">{{ ha_auth_mode }}</span></div>
-        <div class="note">Effective Home Assistant URL: <span class="monospace">{{ ha_url }}</span></div>
-        <div class="note">TLS verification: <span class="monospace">{{ 'enabled' if ha_verify_tls else 'disabled' }}</span></div>
-      </div>
+    <div class="settings-overview-grid">
+      {% for profile in meter_profiles %}
+        <div class="control-box{% if profile.key == meter_model %} active-profile{% endif %}">
+          <div class="subheading">{{ profile.label }}</div>
+          <div class="note monospace">{{ profile.key }}{% if profile.key == meter_model %} · ACTIVE{% endif %}</div>
+          <div class="note">{{ profile.phases }} · {{ profile.encoding }} · {{ profile.serial }}</div>
+          <div class="note">L1 current register: <span class="monospace">{{ profile.current_register }}</span></div>
+          <div class="note">{{ profile.notes }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
+  <section class="card panel">
+    <div class="panel-head">
+      <div>
+        <h2>Home Assistant entities for the active profile</h2>
+        <div class="panel-note">Only fields relevant to the selected meter profile are highlighted. The add-on schema remains generic because Home Assistant does not make these fields conditional on another option.</div>
+      </div>
+    </div>
+
+    <div class="control-box">
+      <div class="subheading">Minimum data</div>
+      <div class="note">Required fields: {% for key in meter_profile.required %}<span class="monospace">{{ key }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+      <div class="note">Recommended for a more complete emulation: {% for key in meter_profile.recommended %}<span class="monospace">{{ key }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</div>
+      {% if meter_profile.optional %}<div class="note">Optional: {% for key in meter_profile.optional %}<span class="monospace">{{ key }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+    </div>
+
+    <div class="entity-grid">
+      {% for field in meter_profile.fields if field.used %}
+        <div class="control-box entity-field">
+          <div class="subheading">{{ field.label }} <span class="small">· {{ field.role }}</span></div>
+          <div class="note monospace">{{ field.value or 'Not configured' }}</div>
+          <div class="note">{{ field.help }}</div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <details class="profile-fields-details">
+      <summary>Show fields not used by {{ meter_profile.label }}</summary>
       <div class="entity-grid">
-        {% for field in ha_entity_fields %}
+        {% for field in meter_profile.fields if not field.used %}
           <div class="control-box entity-field">
             <div class="subheading">{{ field.label }}</div>
             <div class="note monospace">{{ field.value or 'Not configured' }}</div>
-            <div class="note">{{ field.help }}</div>
+            <div class="note">This field is not used by the active profile.</div>
           </div>
         {% endfor %}
       </div>
+    </details>
+  </section>
 
-      <div class="toolbar ha-actions">
-        <div class="note">Change these values in the Home Assistant add-on configuration, save, and restart the add-on.</div>
+  <section class="card panel">
+    <div class="panel-head">
+      <div>
+        <h2>Connection and compatibility</h2>
+        <div class="panel-note">These settings control how Modbus frames reach the proxy. They do not select the meter register map.</div>
+      </div>
+    </div>
+    <div class="controls-stack">
+      <div class="control-box">
+        <div class="subheading">Home Assistant API</div>
+        <div class="note">Authentication mode: <span class="monospace">{{ ha_auth_mode }}</span></div>
+        {% if supervisor_mode %}<div class="note">Home Assistant Supervisor mode is active.</div>{% else %}<div class="note">Effective URL: <span class="monospace">{{ ha_url }}</span></div>{% endif %}
+        <div class="note">TLS verification: <span class="monospace">{{ 'enabled' if ha_verify_tls else 'disabled' }}</span></div>
+      </div>
+      <div class="control-box">
+        <div class="subheading">Where to change configuration</div>
+        <div class="note">Change <span class="monospace">meter_model</span>, transport settings and entity mappings in the Home Assistant add-on configuration, then save and restart the add-on.</div>
+        <div class="note">This page is read-only and shows the effective runtime configuration.</div>
       </div>
     </div>
   </section>
@@ -63,10 +113,9 @@
       <div class="panel-head">
         <div>
           <h2>Current session state</h2>
-          <div class="panel-note">A compact status view lets you verify the active session before changing transport behavior.</div>
+          <div class="panel-note">Verify the active transport before changing compatibility settings.</div>
         </div>
       </div>
-
       <div class="kv-grid">
         <div class="kv"><div class="small">TCP connected</div><div class="value" id="tcp_connected">-</div></div>
         <div class="kv"><div class="small">Reachability</div><div class="value" id="transport_reachability">-</div></div>
@@ -81,10 +130,9 @@
       <div class="panel-head">
         <div>
           <h2>Recent Modbus request</h2>
-          <div class="panel-note">Use the last decoded request to confirm register addressing while testing compatibility changes.</div>
+          <div class="panel-note">Use the last decoded request to confirm that the wallbox is polling the expected register family.</div>
         </div>
       </div>
-
       <div class="kv-grid">
         <div class="kv"><div class="small">Function code</div><div class="value" id="last_fc">-</div></div>
         <div class="kv"><div class="small">Start addr / qty</div><div class="value" id="last_addr_qty">-</div></div>

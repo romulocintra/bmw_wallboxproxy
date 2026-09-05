@@ -1,3 +1,13 @@
+## 0.2.21
+
+- Document the supported meter profiles and their protocol-specific behaviour
+- Add profile-specific Home Assistant entity requirements and configuration guidance
+- Distinguish meter model selection from transport/compatibility settings in the web UI
+- Show the active meter profile, protocol details, current register and entity roles in Settings
+- Add PRO2 single-phase configuration and troubleshooting documentation
+- Clarify that valid Modbus responses do not by themselves prove BMW Wallbox meter acceptance
+- Document startup/request-sequence capture as the safe diagnostic approach when the Wallbox falls back to the 6 A conservative limit
+
 ## 0.2.18
 
 - Answer non-read Modbus requests with a proper exception reply instead of silently dropping them; RTU frames are now length-decoded per function code rather than assumed to be 8 bytes

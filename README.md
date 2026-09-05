@@ -6,13 +6,15 @@ This fork is intended for testing and installations where the enhanced meter-mod
 
 ## Supported meter models
 
-| Model | Installation | Encoding | Serial settings |
-|---|---|---|---|
-| `inepro_pro380` | 3-phase | IEEE-754 FLOAT32, ABCD | 9600 8E1, address 1 |
-| `inepro_pro2` | **1-phase** | IEEE-754 FLOAT32, ABCD | 9600 8E1, address 1 |
-| `janitza_b23` | 3-phase | 32-bit scaled integers | Must match Wallbox configuration |
+| Model | Installation | Encoding | Serial settings | L1 current register |
+|---|---|---|---|---|
+| `inepro_pro380` | 3-phase | IEEE-754 FLOAT32, ABCD | 9600 8E1, address 1 | `0x500C` |
+| `inepro_pro2` | **1-phase** | IEEE-754 FLOAT32, ABCD | 9600 8E1, address 1 | `0x500C` |
+| `janitza_b23` | 3-phase | 32-bit scaled integers | Must match Wallbox configuration | `0x5B0C` |
 
-The selected `meter_model` must match the meter model configured in the BMW Wallbox Installation App.
+The selected `meter_model` must match the meter model configured in the BMW Wallbox Installation App. `meter_model` is the virtual meter profile; it is separate from the TCP/RTU transport and compatibility settings.
+
+See [`METER_PROFILES.md`](METER_PROFILES.md) for the profile-specific Home Assistant entity requirements.
 
 ### Inepro PRO380
 
@@ -25,6 +27,8 @@ Measurement values are IEEE-754 FLOAT32 using ABCD byte/word order. The implemen
 The `inepro_pro2` profile is specifically intended for **single-phase installations**.
 
 It uses the PRO2 register map and FLOAT32 ABCD encoding. Registers that are PRO380-only L2/L3 measurements are returned as zero instead of duplicating L1 values.
+
+For current/load-management testing, `i1_entity` is the minimum useful HA input. A more complete emulation should also provide `u1_entity`, `p_total_entity`, `freq_entity`, and `p1_entity`.
 
 ### Janitza B23
 
@@ -54,12 +58,7 @@ The different slug allows the fork to be installed separately from the original 
 
 1. Open **Settings → Add-ons → Add-on Store**.
 2. Open the three-dot menu and select **Repositories**.
-3. Add:
-
-```text
-https://github.com/romulocintra/bmw_wallboxproxy
-```
-
+3. Add the repository shown on the project page.
 4. Refresh the store.
 5. Install **BMW Wallbox Proxy (Multi-Meter)**.
 
@@ -116,28 +115,62 @@ Pin 9: 485 D- / Tx- / Rx-
 
 The communication parameters configured in the BMW Installation App must match the proxy/bridge path.
 
-## Example configuration
+## Configuration
 
-For a single-phase installation using the PRO2 profile:
+The Home Assistant add-on schema intentionally exposes a common set of entity fields for all meter profiles. The profile-specific requirements are documented in the web UI Settings page and in [`METER_PROFILES.md`](METER_PROFILES.md).
+
+### Single-phase PRO2 example
 
 ```yaml
 meter_model: inepro_pro2
 transport_mode: rtu_over_tcp
 float_word_order: abcd
 register_alias_mode: exact
+u1_entity: sensor.inverter_grid_l1_voltage
+i1_entity: sensor.inverter_grid_l1_current
+p_total_entity: sensor.inverter_grid_power
+freq_entity: sensor.inverter_grid_frequency
+p1_entity: sensor.inverter_grid_power
 ```
 
-For a three-phase PRO380:
+For a minimal current-only test, `i1_entity` is the important field. For normal commissioning, configure the recommended PRO2 fields above rather than relying on defaults.
+
+### Three-phase PRO380 example
 
 ```yaml
 meter_model: inepro_pro380
+transport_mode: rtu_over_tcp
+float_word_order: abcd
+register_alias_mode: exact
+u1_entity: sensor.inverter_grid_l1_voltage
+u2_entity: sensor.inverter_grid_l2_voltage
+u3_entity: sensor.inverter_grid_l3_voltage
+i1_entity: sensor.inverter_grid_l1_current
+i2_entity: sensor.inverter_grid_l2_current
+i3_entity: sensor.inverter_grid_l3_current
+p_total_entity: sensor.inverter_grid_power
+freq_entity: sensor.inverter_grid_frequency
+p1_entity: sensor.inverter_grid_l1_power
+p2_entity: sensor.inverter_grid_l2_power
+p3_entity: sensor.inverter_grid_l3_power
 ```
 
-For Janitza B23:
+### Janitza B23 example
 
 ```yaml
 meter_model: janitza_b23
+transport_mode: rtu_over_tcp
+u1_entity: sensor.inverter_grid_l1_voltage
+u2_entity: sensor.inverter_grid_l2_voltage
+u3_entity: sensor.inverter_grid_l3_voltage
+i1_entity: sensor.inverter_grid_l1_current
+i2_entity: sensor.inverter_grid_l2_current
+i3_entity: sensor.inverter_grid_l3_current
+p_total_entity: sensor.inverter_grid_power
+freq_entity: sensor.inverter_grid_frequency
 ```
+
+Do not apply Inepro FLOAT32 assumptions to the B23 profile.
 
 ## Modbus protocol behaviour
 
@@ -198,7 +231,7 @@ All PRO2 measurement values use the documented IEEE-754 FLOAT32 ABCD representat
 
 The energy map is complete. Only aggregate total/forward/reverse active-energy values are sourced from Home Assistant; tariff-specific, phase-specific and reactive-energy values remain explicit zeroes because the proxy currently has no corresponding HA entities.
 
-This profile is intended to be tested against a BMW Wallbox Gen4 configured as an **Inepro PRO2**. The goal is to make the Modbus device presented to the wallbox behave like a physical PRO2 as closely as the available HA data and documented meter defaults allow. Other meter profiles will be refined separately after the PRO2 test is validated.
+This profile is intended to be tested against a BMW Wallbox Gen4 configured as an **Inepro PRO2**. A syntactically valid Modbus response is not proof that the Wallbox has accepted the virtual meter. If the Wallbox enters a conservative charging limit, keep the HA values live and capture the traffic from a Wallbox restart rather than injecting artificial current values.
 
 ## Phase Mapping
 
@@ -242,20 +275,23 @@ pytest -q
 
 ## Troubleshooting
 
-### The Wallbox does not detect the meter
+### The Wallbox does not detect or accept the meter
+
+A valid Modbus exchange does **not** by itself prove that the BMW Wallbox has accepted the virtual meter. If the Wallbox limits charging to a conservative value, do not use artificial current values as the first diagnostic.
 
 Check, in order:
 
 1. The BMW Installation App meter model matches `meter_model`.
 2. Modbus address matches; normally `1` for PRO380/PRO2.
 3. Serial settings match exactly; PRO380/PRO2 default to `9600 8E1`.
-4. Waveshare is operating as a transparent serial/TCP bridge.
+4. Waveshare is operating as a transparent serial/TCP bridge when using `rtu_over_tcp`.
 5. RS485 polarity is correct: pin 8 = D+, pin 9 = D-.
 6. The Wallbox is actually sending Modbus requests.
 7. The proxy returns a response with a valid CRC.
 8. PRO380/PRO2 responses contain FLOAT32 ABCD data.
 9. Janitza responses use B23 scaled integers rather than FLOAT32.
-10. The correct add-on is running and listening on host port `502`.
+10. Restart the Wallbox and capture the initial request sequence; look for identification/validation reads before relying only on the recurring measurement poll.
+11. The correct add-on is running and listening on host port `502`.
 
 A healthy PRO380/PRO2 exchange should look like:
 
