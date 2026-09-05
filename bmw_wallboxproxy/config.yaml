@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy (Multi-Meter)
-version: "0.2.21"
+version: "0.2.22"
 slug: bmw_wallboxproxy_multimeter
 description: Emulate an Inepro or Janitza Modbus meter for a BMW wallbox using Home Assistant sensor data.
 arch:
@@ -22,11 +22,17 @@ ports:
 ports_description:
   502/tcp: BMW wallbox Modbus TCP listener
 options:
+  # Optional Home Assistant long-lived token. Supervisor mode uses the Supervisor token.
   ha_token: ""
+  # Virtual meter profile. Must match the meter configured in the BMW Installation App.
   meter_model: inepro_pro380
+  # Modbus framing expected by the proxy. Use rtu_over_tcp for a transparent RS485/TCP bridge.
   transport_mode: rtu_over_tcp
+  # FLOAT32 word order used by Inepro PRO380/PRO2 profiles.
   float_word_order: abcd
+  # Legacy register-address compatibility for Inepro profiles.
   register_alias_mode: exact
+  # Home Assistant electrical measurement entities.
   u1_entity: ""
   u2_entity: ""
   u3_entity: ""

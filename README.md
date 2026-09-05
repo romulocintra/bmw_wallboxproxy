@@ -14,32 +14,70 @@ This fork is intended for testing and installations where the enhanced meter-mod
 
 The selected `meter_model` must match the meter model configured in the BMW Wallbox Installation App. `meter_model` is the virtual meter profile; it is separate from the TCP/RTU transport and compatibility settings.
 
-See [`METER_PROFILES.md`](METER_PROFILES.md) for the profile-specific Home Assistant entity requirements.
+See [`METER_PROFILES.md`](METER_PROFILES.md) for profile-specific Home Assistant entity requirements and [`CONFIGURATION.md`](CONFIGURATION.md) for the complete add-on option reference.
+
+## Configuration
+
+The Home Assistant add-on configuration is the source of truth. Change options in the add-on configuration page, save, and restart the add-on. The web UI is read-only and shows the effective runtime profile.
+
+### All add-on options
+
+| Option | Default | Description |
+|---|---|---|
+| `ha_token` | empty | Optional Home Assistant long-lived token; Supervisor mode normally uses the Supervisor token instead. |
+| `meter_model` | `inepro_pro380` | Virtual meter profile: `inepro_pro380`, `inepro_pro2`, or `janitza_b23`. |
+| `transport_mode` | `rtu_over_tcp` | Modbus framing: raw RTU carried over TCP or Modbus TCP. |
+| `float_word_order` | `abcd` | FLOAT32 word order for Inepro profiles. |
+| `register_alias_mode` | `exact` | Legacy register compatibility mode for Inepro profiles. |
+| `u1_entity` | empty | Home Assistant L1 voltage entity. |
+| `u2_entity` | empty | Home Assistant L2 voltage entity. |
+| `u3_entity` | empty | Home Assistant L3 voltage entity. |
+| `i1_entity` | empty | Home Assistant L1 current entity. Minimum useful HA input for PRO2 current/load-management testing. |
+| `i2_entity` | empty | Home Assistant L2 current entity. |
+| `i3_entity` | empty | Home Assistant L3 current entity. |
+| `p_total_entity` | empty | Home Assistant total active-power entity. |
+| `freq_entity` | empty | Home Assistant grid-frequency entity. |
+| `p1_entity` | empty | Home Assistant L1 active-power entity. |
+| `p2_entity` | empty | Home Assistant L2 active-power entity. |
+| `p3_entity` | empty | Home Assistant L3 active-power entity. |
+| `e_import_total_entity` | empty | Home Assistant aggregate imported/forward energy entity. |
+| `e_export_total_entity` | empty | Home Assistant aggregate exported/reverse energy entity. |
+| `power_offset_entity` | empty | Optional Home Assistant Number helper supplying a power offset in watts. |
+
+For profile-specific requirements, use **Meter Profile / Settings** in the web UI or read [`METER_PROFILES.md`](METER_PROFILES.md).
+
+### Single-phase PRO2 example
+
+```yaml
+meter_model: inepro_pro2
+transport_mode: rtu_over_tcp
+float_word_order: abcd
+register_alias_mode: exact
+u1_entity: sensor.inverter_grid_l1_voltage
+i1_entity: sensor.inverter_grid_l1_current
+p_total_entity: sensor.inverter_grid_power
+freq_entity: sensor.inverter_grid_frequency
+p1_entity: sensor.inverter_grid_power
+e_import_total_entity: sensor.inverter_grid_imported_energy
+e_export_total_entity: sensor.inverter_grid_exported_energy
+power_offset_entity: input_number.wallbox_power_offset
+```
+
+For a minimal current-only test, `i1_entity` is the important field. L2/L3 inputs are not required for PRO2.
+
+## Meter profiles
 
 ### Inepro PRO380
 
-The `inepro_pro380` profile follows the documented PRO380 Modbus register map, including voltage, current, active/reactive/apparent power, power factor, frequency and energy registers.
-
-Measurement values are IEEE-754 FLOAT32 using ABCD byte/word order. The implementation uses the documented register addresses rather than treating the PRO380 as a generic floating-point device.
+The `inepro_pro380` profile follows the documented PRO380 Modbus register map, including voltage, current, active/reactive/apparent power, power factor, frequency and energy registers. Measurement values are IEEE-754 FLOAT32 using ABCD byte/word order.
 
 ### Inepro PRO2
 
-The `inepro_pro2` profile is specifically intended for **single-phase installations**.
-
-It uses the PRO2 register map and FLOAT32 ABCD encoding. Registers that are PRO380-only L2/L3 measurements are returned as zero instead of duplicating L1 values.
-
-For current/load-management testing, `i1_entity` is the minimum useful HA input. A more complete emulation should also provide `u1_entity`, `p_total_entity`, `freq_entity`, and `p1_entity`.
+The `inepro_pro2` profile is specifically intended for **single-phase installations**. It uses the PRO2 register map and FLOAT32 ABCD encoding. Registers that are PRO380-only L2/L3 measurements are returned as zero instead of duplicating L1 values.
 
 ### Janitza B23
 
-The `janitza_b23` profile uses the B23 register map and its scaled 32-bit representation:
-
-- Voltage: `0.1 V`
-- Current: `0.01 A`
-- Active/reactive/apparent power: `0.01 W/var/VA`
-- Frequency: `0.01 Hz`
-
-Signed values are handled according to the B23 register definition.
+The `janitza_b23` profile uses the B23 register map and scaled 32-bit representation. Voltage uses 0.1 V, current 0.01 A, active/reactive/apparent power 0.01 W/var/VA, and frequency 0.01 Hz. Signed values are handled according to the B23 register definition.
 
 ## Parallel installation with the original add-on
 
@@ -90,7 +128,7 @@ BMW Wallbox Proxy (Multi-Meter)
 Home Assistant
 ```
 
-Do not configure the Waveshare as a Modbus TCP-to-RTU gateway while also using `rtu_over_tcp` in the proxy. That would convert the Modbus framing twice.
+Do not configure the Waveshare as a Modbus TCP-to-RTU gateway while also using `rtu_over_tcp` in the proxy.
 
 ## PRO380 / PRO2 serial settings
 
@@ -115,63 +153,6 @@ Pin 9: 485 D- / Tx- / Rx-
 
 The communication parameters configured in the BMW Installation App must match the proxy/bridge path.
 
-## Configuration
-
-The Home Assistant add-on schema intentionally exposes a common set of entity fields for all meter profiles. The profile-specific requirements are documented in the web UI Settings page and in [`METER_PROFILES.md`](METER_PROFILES.md).
-
-### Single-phase PRO2 example
-
-```yaml
-meter_model: inepro_pro2
-transport_mode: rtu_over_tcp
-float_word_order: abcd
-register_alias_mode: exact
-u1_entity: sensor.inverter_grid_l1_voltage
-i1_entity: sensor.inverter_grid_l1_current
-p_total_entity: sensor.inverter_grid_power
-freq_entity: sensor.inverter_grid_frequency
-p1_entity: sensor.inverter_grid_power
-```
-
-For a minimal current-only test, `i1_entity` is the important field. For normal commissioning, configure the recommended PRO2 fields above rather than relying on defaults.
-
-### Three-phase PRO380 example
-
-```yaml
-meter_model: inepro_pro380
-transport_mode: rtu_over_tcp
-float_word_order: abcd
-register_alias_mode: exact
-u1_entity: sensor.inverter_grid_l1_voltage
-u2_entity: sensor.inverter_grid_l2_voltage
-u3_entity: sensor.inverter_grid_l3_voltage
-i1_entity: sensor.inverter_grid_l1_current
-i2_entity: sensor.inverter_grid_l2_current
-i3_entity: sensor.inverter_grid_l3_current
-p_total_entity: sensor.inverter_grid_power
-freq_entity: sensor.inverter_grid_frequency
-p1_entity: sensor.inverter_grid_l1_power
-p2_entity: sensor.inverter_grid_l2_power
-p3_entity: sensor.inverter_grid_l3_power
-```
-
-### Janitza B23 example
-
-```yaml
-meter_model: janitza_b23
-transport_mode: rtu_over_tcp
-u1_entity: sensor.inverter_grid_l1_voltage
-u2_entity: sensor.inverter_grid_l2_voltage
-u3_entity: sensor.inverter_grid_l3_voltage
-i1_entity: sensor.inverter_grid_l1_current
-i2_entity: sensor.inverter_grid_l2_current
-i3_entity: sensor.inverter_grid_l3_current
-p_total_entity: sensor.inverter_grid_power
-freq_entity: sensor.inverter_grid_frequency
-```
-
-Do not apply Inepro FLOAT32 assumptions to the B23 profile.
-
 ## Modbus protocol behaviour
 
 The proxy validates incoming RTU frames before responding:
@@ -194,82 +175,23 @@ Example Janitza B23 request for L1 current:
 01 03 5B 0C 00 02 17 2C
 ```
 
-## PRO2-Mod physical meter emulation
+## Web UI
 
-The `inepro_pro2` profile is a dedicated single-phase **Inepro PRO2-Mod** emulator. It is intentionally based on the manufacturer's PRO2-Mod Modbus register map rather than treating PRO2 as a reduced PRO380.
+The **Meter Profile / Settings** page is a read-only view of the effective configuration. It shows the active meter model, profile details, current register, required/recommended/optional entity fields, configured HA entities, and transport/authentication state.
 
-The documented serial defaults are:
+The meter profile shown by the UI is read from the same runtime `METER_MODEL` value used by the Modbus register map. The add-on startup explicitly imports `meter_model` from the Home Assistant add-on configuration, so changing the add-on option and restarting keeps the configuration and UI synchronized.
 
-```text
-9600 baud
-8 data bits
-Even parity
-1 stop bit
-Modbus address 1
-```
+## Tests and CI
 
-The implementation now exposes the documented PRO2 read-only configuration/identity area (`0x4000`-`0x401D`), the single-phase measurement area (`0x5000`-`0x502A`) and the complete energy area through `0x6049`.
+The repository contains tests for meter-model mapping, Modbus encoding/protocol behaviour, power offsets, profile dispatch, configuration wiring, and web profile rendering/API output.
 
-Known manufacturer defaults are represented as meter values:
+GitHub Actions runs `pytest -q` automatically on every pull request and on pushes to `main`.
 
-- Modbus ID `1`
-- Baud register `9600` (`0x2580`)
-- Meter rating `100 A`
-- S0 output `1000 imp/kWh`
-- Combination code `01` / C01 (forward only)
-- LCD cycle `10 s`
-- Parity `01` / even
-- Current direction `F`
-- Error code `0`
-- Power-down counter `0`
-- Present quadrant `1`
-- Tariff `1` / T1
-
-Device-unique values such as serial number, firmware/hardware versions, checksum and active-status word cannot be reconstructed from Home Assistant sensor data, so the emulator uses stable zero placeholders for those fields. These are deliberately documented as placeholders rather than being presented as real meter identity.
-
-All PRO2 measurement values use the documented IEEE-754 FLOAT32 ABCD representation. L2/L3 measurement registers are not treated as real PRO2 measurements because the manufacturer marks those fields as PRO380-only.
-
-The energy map is complete. Only aggregate total/forward/reverse active-energy values are sourced from Home Assistant; tariff-specific, phase-specific and reactive-energy values remain explicit zeroes because the proxy currently has no corresponding HA entities.
-
-This profile is intended to be tested against a BMW Wallbox Gen4 configured as an **Inepro PRO2**. A syntactically valid Modbus response is not proof that the Wallbox has accepted the virtual meter. If the Wallbox enters a conservative charging limit, keep the HA values live and capture the traffic from a Wallbox restart rather than injecting artificial current values.
-
-## Phase Mapping
-
-The proxy maps grid-meter phases L1/L2/L3 to the phases expected by the wallbox. Incorrect mapping can cause wrong per-phase power readings and unnecessary load-management throttling.
-
-The dashboard provides the six possible phase-order mappings. The selected order is persisted across restarts.
-
-A zero total with an uneven per-phase distribution is not necessarily a mapping error: a symmetric three-phase charger can reach its total-power target while normal household phase imbalance remains.
-
-## Power Offset
-
-Power offset shifts the power readings presented to the wallbox by a fixed number of watts.
-
-The recommended approach is to use a Home Assistant Number helper and configure its entity as `power_offset_entity`.
-
-A negative offset makes the charger see more export and therefore tends to increase charging/back-feeding. A positive offset has the opposite effect.
-
-The dashboard also provides a temporary manual override for commissioning and diagnostics.
-
-## Tests
-
-The repository contains tests for:
-
-- PRO380 FLOAT32 ABCD encoding and register mapping
-- PRO380 energy-register mapping
-- PRO2 single-phase behaviour
-- PRO2 zeroed L2/L3 registers
-- Janitza B23 scaled integer encoding and signed power
-- Meter-model dispatch and invalid models
-- Modbus CRC validation
-- RTU-over-TCP request/response handling
-- Wrong slave address and invalid CRC handling
-- Power-offset behaviour
-- Register alias behaviour
-
-Run the suite from the repository root with:
+Run locally from the repository root:
 
 ```bash
+pip install -r bmw_wallboxproxy/requirememts.txt
+pip install pytest
 pytest -q
 ```
 
