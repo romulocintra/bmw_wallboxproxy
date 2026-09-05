@@ -1,8 +1,10 @@
+import os
 from typing import Dict
 
 from config import get_meter_model
 from meter_models import build_register_map as build_model_register_map
 from state import get_float_word_order, get_phase_order, get_power_offset_override, get_register_alias_mode, latest_values, state_lock
+from test_mode import next_test_values
 
 
 def _apply_phase_order(order: str, a: float, b: float, c: float) -> tuple:
@@ -66,8 +68,6 @@ def _build_model_values(values: dict, model: str) -> dict:
         for key in ("p_total", "p1", "p2", "p3", "s_total", "s1", "s2", "s3"):
             model_values[key] = values[key] * 1000.0
     elif model == "inepro_pro2":
-        # PRO2 is physically single-phase. Ignore any accidental L2/L3 HA
-        # entities and make the aggregate values unambiguously L1-only.
         model_values["voltage_avg"] = values["u1"]
         model_values["u2"] = 0.0
         model_values["u3"] = 0.0
@@ -114,7 +114,10 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
 
 def get_register_map() -> Dict[int, int]:
     model = get_meter_model()
-    values = _snapshot_output_values()
+    if model == "inepro_pro2" and os.environ.get("TEST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}:
+        values = next_test_values()
+    else:
+        values = _snapshot_output_values()
     regs = build_model_register_map(model, _build_model_values(values, model), get_float_word_order())
 
     if model in ("inepro_pro380", "inepro_pro2"):
