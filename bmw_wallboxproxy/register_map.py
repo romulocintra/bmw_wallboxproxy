@@ -3,6 +3,7 @@ from typing import Dict
 from config import get_meter_model
 from meter_models import build_register_map as build_model_register_map
 from state import get_float_word_order, get_phase_order, get_power_offset_override, get_register_alias_mode, latest_values, state_lock
+from test_mode import next_test_values
 
 
 def _apply_phase_order(order: str, a: float, b: float, c: float) -> tuple:
@@ -114,7 +115,10 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
 
 def get_register_map() -> Dict[int, int]:
     model = get_meter_model()
-    values = _snapshot_output_values()
+    if model == "inepro_pro2" and __import__("config").get_test_mode():
+        values = next_test_values()
+    else:
+        values = _snapshot_output_values()
     regs = build_model_register_map(model, _build_model_values(values, model), get_float_word_order())
 
     if model in ("inepro_pro380", "inepro_pro2"):
