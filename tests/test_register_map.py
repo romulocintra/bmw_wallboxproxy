@@ -9,7 +9,6 @@ if str(PACKAGE_DIR) not in sys.path:
 
 import config
 import register_map
-import state
 
 
 def _f32(regs, addr):
@@ -21,7 +20,7 @@ def _set_values(monkeypatch, model):
     monkeypatch.setattr(register_map, "get_float_word_order", lambda: "abcd")
     monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "exact")
     monkeypatch.setattr(register_map, "get_power_offset_override", lambda: None)
-    monkeypatch.setattr(state, "latest_values", {
+    monkeypatch.setattr(register_map, "latest_values", {
         "u1": 230.0,
         "u2": 231.0,
         "u3": 232.0,
