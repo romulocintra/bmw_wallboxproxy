@@ -161,6 +161,45 @@ Example Janitza B23 request for L1 current:
 01 03 5B 0C 00 02 17 2C
 ```
 
+## PRO2-Mod physical meter emulation
+
+The `inepro_pro2` profile is a dedicated single-phase **Inepro PRO2-Mod** emulator. It is intentionally based on the manufacturer's PRO2-Mod Modbus register map rather than treating PRO2 as a reduced PRO380.
+
+The documented serial defaults are:
+
+```text
+9600 baud
+8 data bits
+Even parity
+1 stop bit
+Modbus address 1
+```
+
+The implementation now exposes the documented PRO2 read-only configuration/identity area (`0x4000`-`0x401D`), the single-phase measurement area (`0x5000`-`0x502A`) and the complete energy area through `0x6049`.
+
+Known manufacturer defaults are represented as meter values:
+
+- Modbus ID `1`
+- Baud register `9600` (`0x2580`)
+- Meter rating `100 A`
+- S0 output `1000 imp/kWh`
+- Combination code `01` / C01 (forward only)
+- LCD cycle `10 s`
+- Parity `01` / even
+- Current direction `F`
+- Error code `0`
+- Power-down counter `0`
+- Present quadrant `1`
+- Tariff `1` / T1
+
+Device-unique values such as serial number, firmware/hardware versions, checksum and active-status word cannot be reconstructed from Home Assistant sensor data, so the emulator uses stable zero placeholders for those fields. These are deliberately documented as placeholders rather than being presented as real meter identity.
+
+All PRO2 measurement values use the documented IEEE-754 FLOAT32 ABCD representation. L2/L3 measurement registers are not treated as real PRO2 measurements because the manufacturer marks those fields as PRO380-only.
+
+The energy map is complete. Only aggregate total/forward/reverse active-energy values are sourced from Home Assistant; tariff-specific, phase-specific and reactive-energy values remain explicit zeroes because the proxy currently has no corresponding HA entities.
+
+This profile is intended to be tested against a BMW Wallbox Gen4 configured as an **Inepro PRO2**. The goal is to make the Modbus device presented to the wallbox behave like a physical PRO2 as closely as the available HA data and documented meter defaults allow. Other meter profiles will be refined separately after the PRO2 test is validated.
+
 ## Phase Mapping
 
 The proxy maps grid-meter phases L1/L2/L3 to the phases expected by the wallbox. Incorrect mapping can cause wrong per-phase power readings and unnecessary load-management throttling.

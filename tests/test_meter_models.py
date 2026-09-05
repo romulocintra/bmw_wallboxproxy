@@ -76,6 +76,81 @@ def test_inepro_pro380_energy_registers_match_documented_addresses():
     assert math.isclose(_f32(regs, 0x6049), 0.0, abs_tol=1e-9)
 
 
+def test_inepro_pro2_identity_and_default_configuration():
+    regs = build_inepro_pro2({}, "abcd")
+
+    # PRO2-Mod documented defaults: ID 1, 9600 baud, 100 A, S0 1000,
+    # combination C01, LCD cycle 10 s, even parity, forward direction.
+    assert regs[0x4003] == 1
+    assert regs[0x4004] == 9600
+    assert regs[0x400B] == 100
+    assert math.isclose(_f32(regs, 0x400D), 1000.0, rel_tol=1e-6)
+    assert regs[0x400F] == 1
+    assert regs[0x4010] == 10
+    assert regs[0x4011] == 1
+    assert regs[0x4012] == ord("F")
+    assert regs[0x4015] == 0
+    assert regs[0x4016] == 0
+    assert regs[0x4017] == 1
+
+    # Device-unique fields are deliberately stable placeholders, not copied
+    # from a real meter identity.
+    assert _u32(regs, 0x4000) == 0
+    assert _f32(regs, 0x4005) == 0.0
+    assert _f32(regs, 0x4007) == 0.0
+    assert _f32(regs, 0x4009) == 0.0
+    assert _u32(regs, 0x401B) == 0
+    assert _u32(regs, 0x401D) == 0
+
+
+def test_inepro_pro2_measurements_use_physical_register_types():
+    regs = build_inepro_pro2({
+        "voltage_avg": 230.0,
+        "u1": 230.0,
+        "freq": 50.0,
+        "current_total": 16.21,
+        "i1": 16.21,
+        "p_total": 3.7285,
+        "q_total": 0.0,
+        "s_total": 3.7285,
+        "pf_total": 1.0,
+    }, "abcd")
+
+    assert math.isclose(_f32(regs, 0x5000), 230.0, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x5002), 230.0, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x5008), 50.0, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x500A), 16.21, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x500C), 16.21, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x5012), 3.7285, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x501A), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x5022), 3.7285, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x502A), 1.0, rel_tol=1e-6)
+
+
+def test_inepro_pro2_energy_map_is_complete_and_does_not_duplicate_aggregates():
+    regs = build_inepro_pro2({
+        "e_total": 123.4,
+        "e_import": 120.0,
+        "e_export": 3.4,
+    }, "abcd")
+
+    assert math.isclose(_f32(regs, 0x6000), 123.4, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x600C), 120.0, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x6018), 3.4, rel_tol=1e-6)
+    assert regs[0x6048] == 1
+
+    # No HA sources exist for tariff/phase/reactive counters, so they remain
+    # explicit zero values rather than aliases of total/import/export.
+    for addr in (0x6002, 0x6004, 0x6006, 0x6008, 0x600A,
+                 0x600E, 0x6010, 0x6012, 0x6014, 0x6016,
+                 0x601A, 0x601C, 0x601E, 0x6020, 0x6022,
+                 0x6024, 0x6026, 0x6028, 0x602A, 0x602C, 0x602E,
+                 0x6030, 0x6032, 0x6034, 0x6036, 0x6038, 0x603A,
+                 0x603C, 0x603E, 0x6040, 0x6042, 0x6044, 0x6046):
+        assert math.isclose(_f32(regs, addr), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x6049), 0.0, abs_tol=1e-9)
+
+
 def test_inepro_pro2_is_single_phase():
     regs = build_inepro_pro2({
         "voltage_avg": 230.0,
@@ -87,14 +162,7 @@ def test_inepro_pro2_is_single_phase():
         "q_total": 0.0,
         "s_total": 3.7285,
         "pf_total": 1.0,
-        "e_total": 123.4,
-        "e_import": 120.0,
-        "e_export": 3.4,
     }, "abcd")
-
-    assert math.isclose(_f32(regs, 0x5002), 230.0, rel_tol=1e-6)
-    assert math.isclose(_f32(regs, 0x500C), 16.21, rel_tol=1e-6)
-    assert math.isclose(_f32(regs, 0x5012), 3.7285, rel_tol=1e-6)
 
     for addr in (0x5004, 0x5006, 0x500E, 0x5010,
                  0x5014, 0x5016, 0x5018,
@@ -107,6 +175,7 @@ def test_inepro_pro2_is_single_phase():
 def test_meter_model_dispatch_and_invalid_model():
     regs = build_register_map("inepro_pro2", {"i1": 5.0}, "abcd")
     assert math.isclose(_f32(regs, 0x500C), 5.0, rel_tol=1e-6)
+    assert regs[0x4003] == 1
 
     try:
         build_register_map("not-a-meter", {}, "abcd")
