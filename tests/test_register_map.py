@@ -18,8 +18,9 @@ def _f32(regs, addr):
 
 def _set_values(monkeypatch, model):
     monkeypatch.setattr(config, "METER_MODEL", model)
-    monkeypatch.setattr(config, "MODBUS_FLOAT_WORD_ORDER", "abcd")
-    monkeypatch.setattr(config, "MODBUS_REGISTER_ALIAS_MODE", "exact")
+    monkeypatch.setattr(register_map, "get_float_word_order", lambda: "abcd")
+    monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "exact")
+    monkeypatch.setattr(register_map, "get_power_offset_override", lambda: None)
     monkeypatch.setattr(state, "latest_values", {
         "u1": 230.0,
         "u2": 231.0,
@@ -52,7 +53,7 @@ def test_register_map_dispatches_to_janitza_and_preserves_output_units(monkeypat
 
 def test_register_map_preserves_pro380_float_units_and_power_offset(monkeypatch):
     _set_values(monkeypatch, "inepro_pro380")
-    monkeypatch.setattr(state, "get_power_offset_override", lambda: 100.0)
+    monkeypatch.setattr(register_map, "get_power_offset_override", lambda: 100.0)
 
     values = register_map.get_output_values()
     regs = register_map.get_register_map()
@@ -78,7 +79,7 @@ def test_register_map_pro2_forces_single_phase(monkeypatch):
 
 def test_legacy_alias_mode_is_not_applied_to_janitza(monkeypatch):
     _set_values(monkeypatch, "janitza_b23")
-    monkeypatch.setattr(config, "MODBUS_REGISTER_ALIAS_MODE", "alias_both")
+    monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "alias_both")
 
     regs = register_map.get_register_map()
     assert 0x5B0B not in regs
