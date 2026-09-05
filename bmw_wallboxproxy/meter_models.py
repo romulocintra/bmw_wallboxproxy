@@ -38,16 +38,16 @@ def _put_float(regs: Dict[int, int], enc: RegisterEncoder, addr: int, value: flo
     regs[addr + 1] = lo
 
 
+def _put_u16(regs: Dict[int, int], addr: int, value: int) -> None:
+    regs[addr] = int(value) & 0xFFFF
+
+
 def _value(values: dict, name: str, default: float = 0.0) -> float:
     return float(values.get(name, default))
 
 
 def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
-    """Build the documented Inepro PRO380-Mod FLOAT32 register map.
-
-    PRO380 measurement values use FLOAT32, big-endian/ABCD word order.
-    Active power is expressed in kW and energy in kWh by the meter protocol.
-    """
+    """Build the documented Inepro PRO380-Mod FLOAT32 register map."""
     enc = _float_encoder(word_order)
     regs: Dict[int, int] = {}
 
@@ -81,10 +81,6 @@ def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
     for addr, value in measurement_values.items():
         _put_float(regs, enc, addr, value)
 
-    # Complete PRO380 active/reactive energy register matrix. The proxy only
-    # has aggregate import/export energy entities, so unavailable tariff and
-    # phase-specific counters are deliberately returned as zero rather than
-    # duplicating aggregate values into registers where they do not belong.
     energy_values = {
         0x6000: _value(values, "e_total"),
         0x6002: 0.0, 0x6004: 0.0,
@@ -105,23 +101,52 @@ def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
     for addr, value in energy_values.items():
         _put_float(regs, enc, addr, value)
 
-    # 0x6048 is the tariff selector (signed, one register), while 0x6049 is
-    # the resettable day counter (FLOAT32). No corresponding HA values exist.
     regs[0x6048] = 0
     _put_float(regs, enc, 0x6049, 0.0)
     return regs
 
 
 def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
-    """Build the documented Inepro PRO2-Mod single-phase register map.
+    """Emulate an Inepro PRO2-Mod as a single-phase physical meter.
 
-    PRO2 uses the same FLOAT32/ABCD measurement representation as PRO380,
-    but L2/L3 voltage/current/power/reactive/apparent/PF registers are
-    PRO380-only. They are explicitly returned as zero for compatibility with
-    masters that probe those addresses.
+    The profile follows the official PRO2-Mod Modbus map: read-only identity
+    and configuration registers use their documented native types, while live
+    measurements and energy values use FLOAT32 ABCD. Only PRO2 fields are
+    populated; PRO380-only L2/L3 fields are not treated as real measurements.
+
+    Device-unique fields (serial/version/checksum/status) cannot be derived
+    from Home Assistant, so they use stable zero placeholders until a real
+    meter identity is supplied. All documented default configuration fields
+    are represented using the manufacturer's default values.
     """
     enc = _float_encoder(word_order)
     regs: Dict[int, int] = {}
+
+    # PRO2-Mod read-only identity/configuration map. Defaults documented by
+    # Inepro: ID 1, 9600 baud, 100 A meter, S0 1000 imp/kWh, combination C01,
+    # LCD cycle 10 s, even parity, forward current direction. Serial/version,
+    # checksum and status are device-specific and therefore remain zero.
+    _put_u16(regs, 0x4000, 0x0000)
+    _put_u16(regs, 0x4001, 0x0000)
+    _put_u16(regs, 0x4002, 0x0000)
+    _put_u16(regs, 0x4003, 1)
+    _put_u16(regs, 0x4004, 9600)
+    _put_float(regs, enc, 0x4005, 0.0)
+    _put_float(regs, enc, 0x4007, 0.0)
+    _put_float(regs, enc, 0x4009, 0.0)
+    _put_u16(regs, 0x400B, 100)
+    _put_float(regs, enc, 0x400D, 1000.0)
+    _put_u16(regs, 0x400F, 1)   # C01: forward only
+    _put_u16(regs, 0x4010, 10)  # default LCD cycle
+    _put_u16(regs, 0x4011, 1)   # 1 = even
+    _put_u16(regs, 0x4012, ord("F"))
+    _put_u16(regs, 0x4015, 0)   # no error
+    _put_u16(regs, 0x4016, 0)   # power-down counter
+    _put_u16(regs, 0x4017, 1)   # forward active quadrant
+    _put_u16(regs, 0x401B, 0)
+    _put_u16(regs, 0x401C, 0)
+    _put_u16(regs, 0x401D, 0)
+    _put_u16(regs, 0x401E, 0)
 
     measurement_values = {
         0x5000: _value(values, "voltage_avg"),
@@ -137,8 +162,8 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     for addr, value in measurement_values.items():
         _put_float(regs, enc, addr, value)
 
-    # PRO380-only phase registers are intentionally zero. This is preferable
-    # to manufacturing L2/L3 values for a genuinely single-phase meter.
+    # These addresses exist in the common register layout but are explicitly
+    # marked PRO380-only in the PRO2 manual. They are not used as PRO2 data.
     for addr in (
         0x5004, 0x5006, 0x500E, 0x5010,
         0x5014, 0x5016, 0x5018,
@@ -148,24 +173,30 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     ):
         _put_float(regs, enc, addr, 0.0)
 
-    # PRO2 active-energy layout follows the same addresses for aggregate
-    # counters. Only total/forward/reverse aggregate values are available
-    # from Home Assistant in this proxy.
+    # Complete PRO2 energy map. Aggregate counters are sourced from HA;
+    # tariff/phase/reactive counters not available from HA are zero rather
+    # than being incorrectly duplicated from an aggregate counter.
     energy_values = {
         0x6000: _value(values, "e_total"),
         0x6002: 0.0, 0x6004: 0.0,
+        0x6006: 0.0, 0x6008: 0.0, 0x600A: 0.0,
         0x600C: _value(values, "e_import"),
         0x600E: 0.0, 0x6010: 0.0,
+        0x6012: 0.0, 0x6014: 0.0, 0x6016: 0.0,
         0x6018: _value(values, "e_export"),
         0x601A: 0.0, 0x601C: 0.0,
+        0x601E: 0.0, 0x6020: 0.0, 0x6022: 0.0,
         0x6024: 0.0, 0x6026: 0.0, 0x6028: 0.0,
+        0x602A: 0.0, 0x602C: 0.0, 0x602E: 0.0,
         0x6030: 0.0, 0x6032: 0.0, 0x6034: 0.0,
+        0x6036: 0.0, 0x6038: 0.0, 0x603A: 0.0,
         0x603C: 0.0, 0x603E: 0.0, 0x6040: 0.0,
+        0x6042: 0.0, 0x6044: 0.0, 0x6046: 0.0,
     }
     for addr, value in energy_values.items():
         _put_float(regs, enc, addr, value)
 
-    regs[0x6048] = 0
+    regs[0x6048] = 1  # default tariff T1
     _put_float(regs, enc, 0x6049, 0.0)
     return regs
 
