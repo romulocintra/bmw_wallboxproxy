@@ -18,9 +18,9 @@ homeassistant_api: true
 panel_title: BMW Wallbox Multi-Meter
 panel_icon: mdi:ev-station
 ports:
-  1502/tcp: 502
+  502/tcp: 502
 ports_description:
-  1502/tcp: BMW wallbox Modbus TCP listener (parallel-install port)
+  502/tcp: BMW wallbox Modbus TCP listener
 options:
   ha_token: ""
   meter_model: inepro_pro380
