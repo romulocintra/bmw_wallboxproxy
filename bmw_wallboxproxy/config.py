@@ -208,13 +208,7 @@ WEBAPP_SSL_KEY_FILE = _env_str("WEBAPP_SSL_KEY_FILE")
 SLAVE_ID = 1
 
 HA_POLL_SECONDS = 1.0
-# Per-request timeout for a single Home Assistant state read. Every configured
-# entity is fetched sequentially, so this bounds how long one slow or dead
-# entity can delay the whole poll cycle.
 HA_REQUEST_TIMEOUT_SECONDS = _env_float("HA_REQUEST_TIMEOUT_SECONDS", 3.0)
-# How long live values may go without a successful refresh before the proxy
-# flags them as stale. The charger load-balances on these numbers, so silently
-# serving minute-old grid data is worse than saying so loudly.
 HA_STALE_AFTER_SECONDS = _env_float("HA_STALE_AFTER_SECONDS", 30.0)
 SOCKET_TIMEOUT = 2.0
 MODBUS_IDLE_DISCONNECT_SECONDS = _env_float("MODBUS_IDLE_DISCONNECT_SECONDS", 10.0)
@@ -239,6 +233,11 @@ MODBUS_REGISTER_ALIAS_MODE = _env_choice(
     "MODBUS_REGISTER_ALIAS_MODE",
     "exact",
     {"exact", "alias_minus_1", "alias_plus_1", "alias_both"},
+)
+METER_MODEL = _env_choice(
+    "METER_MODEL",
+    "inepro_pro380",
+    {"inepro_pro380", "inepro_pro2", "janitza_b23"},
 )
 
 ENTITIES = _load_entity_settings()
@@ -352,3 +351,7 @@ DEFAULTS = {
     "e_import_total": 0.0, "e_export_total": 0.0,
     "power_offset": 0.0,
 }
+
+
+def get_meter_model() -> str:
+    return METER_MODEL
