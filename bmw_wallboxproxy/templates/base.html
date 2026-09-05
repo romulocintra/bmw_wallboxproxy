@@ -29,6 +29,10 @@
       <div class="topbar-brand">
         <div class="topbar-title">BMW Wallboxproxy</div>
       </div>
+      <nav class="topbar-nav" aria-label="Primary navigation">
+        <a href="{{ ingress_base_path }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+        <a href="{{ ingress_base_path }}settings"{% if active_page == 'settings' %} aria-current="page"{% endif %}>Meter profile &amp; settings</a>
+      </nav>
     </header>
 
     <main class="wrap">
