@@ -1,7 +1,13 @@
 import math
 import struct
+import sys
+from pathlib import Path
 
-from bmw_wallboxproxy.meter_models import (
+PACKAGE_DIR = Path(__file__).resolve().parents[1] / "bmw_wallboxproxy"
+if str(PACKAGE_DIR) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_DIR))
+
+from meter_models import (
     build_janitza_b23,
     build_inepro_pro2,
     build_inepro_pro380,
@@ -58,8 +64,6 @@ def test_inepro_pro380_energy_registers_match_documented_addresses():
     assert math.isclose(_f32(regs, 0x600C), 1000.25, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x6018), 234.25, rel_tol=1e-6)
 
-    # T1/T2 and phase-specific energy are not available from HA, so they must
-    # not incorrectly duplicate aggregate counters.
     for addr in (0x6002, 0x6004, 0x6006, 0x6008, 0x600A,
                  0x600E, 0x6010, 0x6012, 0x6014, 0x6016,
                  0x601A, 0x601C, 0x601E, 0x6020, 0x6022,
