@@ -4,8 +4,11 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from config import (
     get_ha_auth_mode,
+    get_ha_entities,
+    get_ha_entity_fields,
     get_ha_url,
     get_ha_verify_tls,
+    get_meter_model,
     is_supervisor_ha_mode,
 )
 from state import (
@@ -32,6 +35,78 @@ import config
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+
+METER_PROFILES = {
+    "inepro_pro380": {
+        "label": "Inepro PRO380",
+        "phases": "3-phase",
+        "encoding": "IEEE-754 FLOAT32",
+        "byte_order": "ABCD by default",
+        "serial": "9600 8E1, Modbus ID 1",
+        "current_register": "0x500C",
+        "required": ["u1", "u2", "u3", "i1", "i2", "i3", "p_total", "freq"],
+        "recommended": ["p1", "p2", "p3", "e_import_total", "e_export_total"],
+        "optional": ["power_offset"],
+        "notes": "Use when the BMW Installation App is configured for Inepro PRO380. L2/L3 are real three-phase outputs.",
+    },
+    "inepro_pro2": {
+        "label": "Inepro PRO2-Mod",
+        "phases": "1-phase",
+        "encoding": "IEEE-754 FLOAT32",
+        "byte_order": "ABCD by default",
+        "serial": "9600 8E1, Modbus ID 1",
+        "current_register": "0x500C",
+        "required": ["i1"],
+        "recommended": ["u1", "p_total", "freq", "p1"],
+        "optional": ["e_import_total", "e_export_total", "power_offset"],
+        "notes": "Use for a single-phase installation when the BMW Installation App is configured for Inepro PRO2. L2/L3 inputs are not required and are ignored by the PRO2 model.",
+    },
+    "janitza_b23": {
+        "label": "Janitza B23 312-10J",
+        "phases": "3-phase",
+        "encoding": "32-bit scaled integers",
+        "byte_order": "Register-specific B23 representation",
+        "serial": "Must match the BMW Installation App",
+        "current_register": "0x5B0C",
+        "required": ["u1", "u2", "u3", "i1", "i2", "i3", "p_total", "freq"],
+        "recommended": ["p1", "p2", "p3", "e_import_total", "e_export_total"],
+        "optional": ["power_offset"],
+        "notes": "Use when the BMW Installation App is configured for Janitza B23. Do not apply Inepro FLOAT32 assumptions to this profile.",
+    },
+}
+
+ENTITY_LABELS = {key: label for key, label, _help in config.ENTITY_FIELDS}
+
+
+def _profile_view(model: str) -> dict:
+    profile = METER_PROFILES.get(model, METER_PROFILES["inepro_pro380"])
+    entities = get_ha_entities()
+    required = set(profile["required"])
+    recommended = set(profile["recommended"])
+    optional = set(profile["optional"])
+    fields = []
+    for key, label, help_text in config.ENTITY_FIELDS:
+        if key in required:
+            role = "required"
+        elif key in recommended:
+            role = "recommended"
+        elif key in optional:
+            role = "optional"
+        else:
+            role = "not_used"
+        fields.append({
+            "key": key,
+            "label": label,
+            "help": help_text,
+            "value": entities.get(key, ""),
+            "role": role,
+            "used": role != "not_used",
+        })
+    return {
+        "key": model,
+        **profile,
+        "fields": fields,
+    }
 
 
 def _ingress_base_path() -> str:
@@ -86,7 +161,20 @@ def index():
 
 @app.route("/settings")
 def settings():
-    return redirect(url_for("index"))
+    model = get_meter_model()
+    profile = _profile_view(model)
+    return render_template(
+        "settings.html",
+        active_page="settings",
+        ha_auth_mode=get_ha_auth_mode(),
+        ha_url=get_ha_url(),
+        ha_verify_tls=get_ha_verify_tls(),
+        ha_entity_fields=get_ha_entity_fields(),
+        meter_model=model,
+        meter_profile=profile,
+        meter_profiles=[_profile_view(key) for key in METER_PROFILES],
+        supervisor_mode=is_supervisor_ha_mode(),
+    )
 
 
 @app.route("/api/phase_order", methods=["POST"])
@@ -128,11 +216,14 @@ def api_state():
     reachability_code, reachability_label = _transport_reachability(st)
     st["transport_reachability_code"] = reachability_code
     st["transport_reachability"] = reachability_label
+    model = get_meter_model()
     return jsonify(
         {
             "values": values,
             "stats": st,
             "output": get_output_values(),
+            "meter_model": model,
+            "meter_profile": _profile_view(model),
             "modbus_log": ml,
             "net_log": nl,
             "tcp_raw_log": tl,
