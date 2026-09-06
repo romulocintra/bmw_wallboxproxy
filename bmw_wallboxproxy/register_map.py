@@ -14,6 +14,19 @@ from state import (
 from test_mode import next_test_values
 
 
+def get_meter_model() -> str:
+    """Compatibility accessor used by existing tests/integrations.
+
+    Keep model selection dynamic by delegating to config at call time.
+    """
+    return config.get_meter_model()
+
+
+def get_test_mode() -> bool:
+    """Compatibility accessor used by existing tests/integrations."""
+    return config.get_test_mode()
+
+
 def _apply_phase_order(order: str, a: float, b: float, c: float) -> tuple:
     idx = [int(x) - 1 for x in order.split(",")]
     src = (a, b, c)
@@ -138,11 +151,8 @@ def _apply_pro2_runtime_config(regs: Dict[int, int]) -> Dict[int, int]:
 
 
 def get_register_map() -> Dict[int, int]:
-    # Import the module rather than binding get_meter_model by value. Tests and
-    # runtime configuration can replace config.get_meter_model dynamically, and
-    # the register map must observe that same model selection as dr_client.
-    model = config.get_meter_model()
-    test_mode = config.get_test_mode()
+    model = get_meter_model()
+    test_mode = get_test_mode()
     values = next_test_values() if test_mode else _snapshot_output_values()
     regs = build_model_register_map(
         model,
