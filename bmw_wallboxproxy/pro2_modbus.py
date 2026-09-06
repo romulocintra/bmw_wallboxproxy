@@ -31,8 +31,11 @@ def handle_fc10_pdu(pdu: bytes) -> bytes:
     addr, quantity, byte_count = struct.unpack(">HHB", pdu[1:6])
     if quantity < 1 or quantity > 123 or byte_count != quantity * 2 or len(pdu) != 6 + byte_count:
         return _exception(0x10, 3)
+    # PRO2 FC16 writable registers are documented as two-register values.
+    # A wrong quantity is a malformed/illegal-value request, not an unknown
+    # register address, so report exception 03.
     if quantity != 2:
-        return _exception(0x10, 2)
+        return _exception(0x10, 3)
     words = struct.unpack(">HH", pdu[6:10])
     try:
         write_fc10(addr, words)
