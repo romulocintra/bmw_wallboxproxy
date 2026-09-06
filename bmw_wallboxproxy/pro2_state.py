@@ -5,7 +5,7 @@ from typing import Dict, Tuple
 
 _lock = Lock()
 
-_config = {
+_DEFAULT_CONFIG = {
     0x4003: 1,
     0x4004: 9600,
     0x400D: 1000.0,
@@ -16,6 +16,8 @@ _config = {
     0x6048: 1,
     0x6049: 0.0,
 }
+
+_config = dict(_DEFAULT_CONFIG)
 
 _FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x6048}
 _FC10_FLOAT_REGS = {0x400D, 0x6049}
@@ -43,6 +45,18 @@ def snapshot() -> Dict[int, object]:
 def get_slave_id(default: int = 1) -> int:
     with _lock:
         return int(_config.get(0x4003, default))
+
+
+def reset_state() -> None:
+    """Restore emulator-only writable state to documented defaults.
+
+    This is intentionally not called by production request handling: PRO2
+    configuration writes are runtime state and should remain effective until
+    the process is restarted. Tests use it to keep cases independent.
+    """
+    with _lock:
+        _config.clear()
+        _config.update(_DEFAULT_CONFIG)
 
 
 def write_fc06(addr: int, value: int) -> None:
