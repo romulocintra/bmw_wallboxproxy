@@ -8,11 +8,11 @@ The PRO2 profile is single-phase. L1 is the physical phase represented by the me
 
 ### Janitza B21 312-10J
 
-B21 is treated as a single-phase member of the Janitza B-series. Its `0x5Bxx` registers use the documented scaled integer representation. Voltage uses 0.1 V, current 0.01 A, power 0.01 W and frequency 0.01 Hz resolution. Power is represented internally in watts so the encoder applies the 0.01 W scale exactly once.
+B21 is treated as a single-phase member of the Janitza B-series. Its `0x5Bxx` registers use the documented scaled integer representation. Voltage uses 0.1 V, current 0.01 A, power 0.01 W and frequency 0.01 Hz resolution. **Frequency at `0x5B2C` occupies one 16-bit register**; `0x5B2D` is the total power phase-angle register. Power is represented internally in watts so the encoder applies the 0.01 W scale exactly once.
 
 ### Janitza B23 312-10J
 
-B23 remains three-phase and uses the same B-series scaled-integer family. The test mode supplies coherent L1/L2/L3 values.
+B23 remains three-phase and uses the same B-series scaled-integer family. The test mode supplies coherent L1/L2/L3 values. Frequency follows the same one-register `0x5B2C` representation.
 
 ## Deterministic test mode
 
