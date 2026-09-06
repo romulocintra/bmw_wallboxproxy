@@ -2,7 +2,7 @@ from typing import Dict
 
 from config import get_meter_model, get_test_mode
 from meter_models import build_register_map as build_model_register_map
-from state import get_float_word_order, get_phase_order, get_power_offset_override, get_register_alias_mode, latest_values, state_lock
+from state import get_float_word_order, get_phase_order, get_power_offset_override, latest_values, state_lock
 from test_mode import next_test_values
 
 
@@ -29,7 +29,10 @@ def _build_model_values(values: dict, model: str) -> dict:
         for key in ("p_total","p1","p2","p3","s_total","s1","s2","s3"): out[key]=values[key]*1000.0
     if model in ("inepro_pro2","janitza_b21"):
         out["voltage_avg"]=values["u1"]; out["u2"]=out["u3"]=0.0; out["current_total"]=values["i1"]; out["i2"]=out["i3"]=0.0
-        out["p2"]=out["p3"]=0.0; out["q1"]=out["q2"]=out["q3"]=0.0; out["s1"]=abs(values["p1"]); out["s2"]=out["s3"]=0.0; out["pf1"]=values["pf1"]; out["pf2"]=out["pf3"]=0.0
+        out["p_total"]=values["p1"]; out["p1"]=values["p1"]; out["p2"]=out["p3"]=0.0
+        out["q_total"]=0.0; out["q1"]=out["q2"]=out["q3"]=0.0
+        out["s_total"]=abs(values["p1"]); out["s1"]=abs(values["p1"]); out["s2"]=out["s3"]=0.0
+        out["pf_total"]=values["pf1"]; out["pf1"]=values["pf1"]; out["pf2"]=out["pf3"]=0.0
     return out
 
 
