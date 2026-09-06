@@ -21,7 +21,7 @@ def test_b21_test_mode_matches_single_phase_vectors(monkeypatch):
     reset_test_sequence(); regs=register_map.get_register_map()
     assert _u32(regs,0x5B00)==2300; assert _u32(regs,0x5B0C)==0; assert _s32(regs,0x5B14)==0
     regs=register_map.get_register_map()
-    assert _u32(regs,0x5B0C)==600; assert _s32(regs,0x5B14)==138000//100; assert _s32(regs,0x5B16)==138000//100
+    assert _u32(regs,0x5B0C)==600; assert _s32(regs,0x5B14)==1380*100; assert _s32(regs,0x5B16)==1380*100
     assert _s32(regs,0x5B18)==0 and _s32(regs,0x5B1A)==0
 
 
