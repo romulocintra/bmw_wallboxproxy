@@ -1,3 +1,12 @@
+## 0.2.24
+
+- Add first-class Janitza B21 312-10J single-phase support using the B-series 0x5Bxx register map.
+- Keep Janitza B21/B23 power values in watts internally and encode the documented 0.01 W resolution exactly once.
+- Make deterministic `test_mode` available to every supported meter profile. PRO2 and B21 expose L1 only; PRO380 and B23 expose coherent three-phase values.
+- Add TCP raw packet diagnostics controls to the dashboard: **Download logs** and **Copy to clipboard**.
+- Document the diagnostic workflow for capturing BMW Wallbox Modbus requests and comparing raw frames with the selected meter profile.
+- Expand regression coverage for Janitza scaling and single-/three-phase test-mode behaviour.
+
 ## 0.2.23
 
 - Add an optional PRO2 test mode for hardware compatibility diagnostics.
