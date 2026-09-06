@@ -20,6 +20,9 @@ def test_b21_test_mode_matches_single_phase_vectors(monkeypatch):
     monkeypatch.setattr(register_map,"get_meter_model",lambda:"janitza_b21"); monkeypatch.setattr(register_map,"get_test_mode",lambda:True)
     reset_test_sequence(); regs=register_map.get_register_map()
     assert _u32(regs,0x5B00)==2300; assert _u32(regs,0x5B0C)==0; assert _s32(regs,0x5B14)==0
+    regs=register_map.get_register_map()
+    assert _u32(regs,0x5B0C)==600; assert _s32(regs,0x5B14)==138000; assert _s32(regs,0x5B16)==138000
+    assert _s32(regs,0x5B18)==0 and _s32(regs,0x5B1A)==0
 
 
 def test_b21_frequency_is_uint16_at_0_01_hz(monkeypatch):
