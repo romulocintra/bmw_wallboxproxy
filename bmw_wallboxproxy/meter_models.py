@@ -47,7 +47,7 @@ def _build_janitza_b_series(values:dict,single_phase:bool)->Dict[int,int]:
         hi,lo=u32_01(val); regs[addr],regs[addr+1]=hi,lo
     for addr,val in ((0x5B0C,i1),(0x5B0E,i2),(0x5B10,i3),(0x5B12,0.0)):
         hi,lo=u32_001(val); regs[addr],regs[addr+1]=hi,lo
-    for addr,val in ((0x5B14,_value(values,"p_total")*1000),(0x5B16,p1*1000),(0x5B18,p2*1000),(0x5B1A,p3*1000),(0x5B1C,_value(values,"q_total")*1000),(0x5B1E,0.0),(0x5B20,0.0),(0x5B22,0.0),(0x5B24,_value(values,"s_total")*1000),(0x5B26,abs(p1)*1000),(0x5B28,abs(p2)*1000),(0x5B2A,abs(p3)*1000)):
+    for addr,val in ((0x5B14,_value(values,"p_total")),(0x5B16,p1),(0x5B18,p2),(0x5B1A,p3),(0x5B1C,_value(values,"q_total")),(0x5B1E,0.0),(0x5B20,0.0),(0x5B22,0.0),(0x5B24,_value(values,"s_total")),(0x5B26,abs(p1)),(0x5B28,abs(p2)),(0x5B2A,abs(p3))):
         hi,lo=s32_001(val); regs[addr],regs[addr+1]=hi,lo
     regs[0x5B2C]=int(round(_value(values,"freq")/0.01))&0xFFFF
     return regs
