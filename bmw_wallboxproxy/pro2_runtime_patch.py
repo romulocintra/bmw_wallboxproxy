@@ -6,7 +6,6 @@ import config
 import dr_client
 import pro2_modbus
 from modbus_codec import append_crc, modbus_crc
-from pro2_modbus import handle_fc10_pdu
 from pro2_state import get_slave_id
 
 _ORIGINAL_DECODED = dr_client._handle_decoded_request
@@ -45,7 +44,7 @@ def _rtu(frame: bytes):
         slave_id = frame[0]
         if slave_id != get_slave_id():
             return None
-        payload = handle_fc10_pdu(frame[1:-2])
+        payload = pro2_modbus.handle_fc10_pdu(frame[1:-2])
         return append_crc(bytes([slave_id]) + payload)
     return _ORIGINAL_RTU(frame)
 
@@ -58,7 +57,7 @@ def _tcp(frame: bytes):
             return _ORIGINAL_TCP(frame)
         if unit_id != get_slave_id():
             return None
-        payload = handle_fc10_pdu(frame[7:])
+        payload = pro2_modbus.handle_fc10_pdu(frame[7:])
         return dr_client._finalize_tcp_response(transaction_id, unit_id, payload)
     return _ORIGINAL_TCP(frame)
 
