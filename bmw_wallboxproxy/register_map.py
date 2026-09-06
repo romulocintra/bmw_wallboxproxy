@@ -1,6 +1,6 @@
 from typing import Dict
 
-from config import get_meter_model, get_test_mode
+import config
 from meter_models import build_register_map as build_model_register_map
 from pro2_state import snapshot as pro2_snapshot
 from state import (
@@ -118,9 +118,11 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
             continue
         hi, lo = regs[addr], regs[addr + 1]
         if alias_mode in ("alias_minus_1", "alias_both"):
-            aliased[addr - 1] = hi; aliased[addr] = lo
+            aliased[addr - 1] = hi
+            aliased[addr] = lo
         if alias_mode in ("alias_plus_1", "alias_both"):
-            aliased[addr + 1] = hi; aliased[addr + 2] = lo
+            aliased[addr + 1] = hi
+            aliased[addr + 2] = lo
     return aliased
 
 
@@ -136,8 +138,11 @@ def _apply_pro2_runtime_config(regs: Dict[int, int]) -> Dict[int, int]:
 
 
 def get_register_map() -> Dict[int, int]:
-    model = get_meter_model()
-    test_mode = get_test_mode()
+    # Import the module rather than binding get_meter_model by value. Tests and
+    # runtime configuration can replace config.get_meter_model dynamically, and
+    # the register map must observe that same model selection as dr_client.
+    model = config.get_meter_model()
+    test_mode = config.get_test_mode()
     values = next_test_values() if test_mode else _snapshot_output_values()
     regs = build_model_register_map(
         model,
