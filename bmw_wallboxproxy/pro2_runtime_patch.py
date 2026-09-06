@@ -92,7 +92,8 @@ def _rtu(frame: bytes):
         dr_client.stats["last_rx"] = time.strftime("%H:%M:%S")
 
     if len(frame) < 4:
-        dr_client.stats["short_frames"] += 1
+        with dr_client.stats_lock:
+            dr_client.stats["short_frames"] += 1
         dr_client.log_modbus("ERR frame too short")
         return None
 
