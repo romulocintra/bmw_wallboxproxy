@@ -14,11 +14,21 @@ import pro2_runtime_patch  # noqa: F401 - installs the PRO2 wrappers
 from modbus_codec import append_crc, modbus_crc
 from pro2_state import get_slave_id, reset_state, write_fc06
 from register_map import get_register_map
+from state import modbus_log, stats, stats_lock
 
 
 @pytest.fixture(autouse=True)
 def _reset_pro2_runtime_state():
     reset_state()
+    with stats_lock:
+        modbus_log.clear()
+        stats["rx_frames"] = 0
+        stats["tx_frames"] = 0
+        stats["crc_fail"] = 0
+        stats["wrong_slave"] = 0
+        stats["last_fc"] = "-"
+        stats["last_start_addr"] = "-"
+        stats["last_quantity"] = "-"
     yield
     reset_state()
 
@@ -94,3 +104,29 @@ def test_pro2_fc16_bad_float_request_returns_exception_03(monkeypatch):
     request = _rtu(bytes.fromhex("01 10 40 0D 00 01 02 00 00"))
     response = dr_client.handle_rtu_request(request)
     assert response[:3] == bytes.fromhex("01 90 03")
+
+
+def test_pro2_request_is_visible_in_modbus_activity(monkeypatch):
+    monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
+
+    request = _rtu(bytes.fromhex("01 03 50 0C 00 02"))
+    response = dr_client.handle_rtu_request(request)
+
+    assert response[:4] == bytes.fromhex("01 03 04 40")
+    with stats_lock:
+        entries = list(modbus_log)
+        snapshot = stats.copy()
+    assert any("RX RTU" in entry for entry in entries)
+    assert any("DEC mode=rtu_over_tcp" in entry for entry in entries)
+    assert any("MAP slave=1 fc=3 addr=0x500C-0x500D" in entry for entry in entries)
+    assert snapshot["rx_frames"] == 1
+    assert snapshot["last_fc"] == 3
+    assert snapshot["last_start_addr"] == "0x500C"
+    assert snapshot["last_quantity"] == 2
+
+
+def test_pro2_current_alias_registers_are_both_available(monkeypatch):
+    monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
+    regs = get_register_map()
+    assert 0x500A in regs
+    assert 0x500C in regs
