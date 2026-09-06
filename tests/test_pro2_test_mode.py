@@ -58,3 +58,20 @@ def test_single_phase_test_profiles_expose_only_l1(monkeypatch):
         else:
             assert (regs[0x5B02] << 16 | regs[0x5B03]) == 0
             assert (regs[0x5B04] << 16 | regs[0x5B05]) == 0
+
+
+def test_single_phase_test_profiles_use_l1_power_as_total(monkeypatch):
+    monkeypatch.setattr(register_map, "get_test_mode", lambda: True)
+    for model in ("inepro_pro2", "janitza_b21"):
+        monkeypatch.setattr(register_map, "get_meter_model", lambda model=model: model)
+        reset_test_sequence()
+        register_map.get_register_map()  # 0 A vector
+        regs=register_map.get_register_map()  # 6 A vector
+        if model == "inepro_pro2":
+            assert math.isclose(_f32(regs,0x5012), 1.38, rel_tol=1e-6)
+            assert math.isclose(_f32(regs,0x5022), 1.38, rel_tol=1e-6)
+            assert math.isclose(_f32(regs,0x502A), 1.0, rel_tol=1e-6)
+        else:
+            assert (regs[0x5B14] << 16 | regs[0x5B15]) == 138000
+            assert (regs[0x5B24] << 16 | regs[0x5B25]) == 138000
+            assert (regs[0x5B3A] if 0x5B3A in regs else 0) == 0
