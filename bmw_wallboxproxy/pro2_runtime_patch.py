@@ -2,9 +2,9 @@
 
 import struct
 
+import config
 import dr_client
 import pro2_modbus
-from config import get_meter_model
 from modbus_codec import append_crc, modbus_crc
 from pro2_modbus import handle_fc10_pdu
 from pro2_state import get_slave_id
@@ -15,22 +15,18 @@ _ORIGINAL_TCP = dr_client.handle_modbus_tcp_request
 
 
 def _is_pro2() -> bool:
-    return get_meter_model() == "inepro_pro2"
+    return config.get_meter_model() == "inepro_pro2"
 
 
 def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
     if not _is_pro2():
         return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
-
     if slave_id != get_slave_id():
         with dr_client.stats_lock:
             dr_client.stats["wrong_slave"] += 1
-        dr_client.log_modbus(f"IGN wrong PRO2 slave id {slave_id}")
         return None
-
     if function_code == 6:
         return pro2_modbus.handle_fc06_pdu(struct.pack(">BHH", 6, start_addr, quantity))
-
     if function_code in (3, 4):
         if function_code != 3:
             return dr_client.build_exception_payload(slave_id, function_code, 1, "PRO2 map documents FC03 reads")
@@ -39,7 +35,6 @@ def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
             return dr_client.build_exception_payload(slave_id, function_code, 3, f"illegal quantity {quantity}")
         if any(addr not in reg_map for addr in range(start_addr, start_addr + quantity)):
             return dr_client.build_exception_payload(slave_id, function_code, 2, "PRO2 illegal data address")
-
     return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
 
 
