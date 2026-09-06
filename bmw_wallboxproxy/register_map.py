@@ -45,7 +45,7 @@ def _apply_legacy_aliases(regs: Dict[int,int], alias_mode: str) -> Dict[int,int]
 
 
 def get_register_map() -> Dict[int,int]:
-    model=get_meter_model(); values=next_test_values(model) if get_test_mode() else _snapshot_output_values()
+    model=get_meter_model(); values=next_test_values() if get_test_mode() else _snapshot_output_values()
     regs=build_model_register_map(model,_build_model_values(values,model),get_float_word_order())
     if model in ("inepro_pro380","inepro_pro2"): regs=_apply_legacy_aliases(regs,get_register_alias_mode())
     return regs
