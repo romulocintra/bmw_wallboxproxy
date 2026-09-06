@@ -2,6 +2,7 @@ from typing import Dict
 
 from config import get_meter_model, get_test_mode
 from meter_models import build_register_map as build_model_register_map
+from pro2_state import snapshot as pro2_snapshot
 from state import (
     get_float_word_order,
     get_phase_order,
@@ -45,38 +46,23 @@ def _snapshot_output_values() -> dict:
 
     return {
         "voltage_avg": (u1 + u2 + u3) / 3.0,
-        "u1": u1,
-        "u2": u2,
-        "u3": u3,
+        "u1": u1, "u2": u2, "u3": u3,
         "freq": get("freq"),
         "current_total": i1 + i2 + i3,
-        "i1": i1,
-        "i2": i2,
-        "i3": i3,
-        "p_total": p_total,
-        "p1": p1,
-        "p2": p2,
-        "p3": p3,
-        "q_total": 0.0,
-        "q1": 0.0,
-        "q2": 0.0,
-        "q3": 0.0,
-        "s_total": s_total,
-        "s1": s1,
-        "s2": s2,
-        "s3": s3,
+        "i1": i1, "i2": i2, "i3": i3,
+        "p_total": p_total, "p1": p1, "p2": p2, "p3": p3,
+        "q_total": 0.0, "q1": 0.0, "q2": 0.0, "q3": 0.0,
+        "s_total": s_total, "s1": s1, "s2": s2, "s3": s3,
         "pf_total": p_total / s_total if s_total else 0.0,
         "pf1": p1 / s1 if s1 else 0.0,
         "pf2": p2 / s2 if s2 else 0.0,
         "pf3": p3 / s3 if s3 else 0.0,
         "e_total": e_import + e_export,
-        "e_import": e_import,
-        "e_export": e_export,
+        "e_import": e_import, "e_export": e_export,
     }
 
 
 def get_output_values() -> dict:
-    """Return the legacy dashboard/output units: active power in kW."""
     return _snapshot_output_values()
 
 
@@ -84,16 +70,10 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
     model_values = dict(values)
 
     if model in ("janitza_b21", "janitza_b23"):
-        # The internal state uses kW; Janitza B-series power registers use
-        # 0.01 W, so convert to watts exactly once here.
         for key in ("p_total", "p1", "p2", "p3", "s_total", "s1", "s2", "s3"):
             model_values[key] = values[key] * 1000.0
 
     if model in ("inepro_pro2", "janitza_b21"):
-        # PRO2/B21 are single-phase physical meters. Keep the measured total
-        # power from the source for live data. In deterministic test mode the
-        # source is a generic three-phase vector, so the physical single-phase
-        # total must instead be represented by L1.
         model_values["voltage_avg"] = values["u1"]
         model_values["u2"] = 0.0
         model_values["u3"] = 0.0
@@ -122,7 +102,6 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
 def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, int]:
     if alias_mode == "exact":
         return regs
-
     aliased = dict(regs)
     float_addresses = (
         0x5000, 0x5002, 0x5004, 0x5006, 0x5008, 0x500A, 0x500C, 0x500E,
@@ -139,12 +118,21 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
             continue
         hi, lo = regs[addr], regs[addr + 1]
         if alias_mode in ("alias_minus_1", "alias_both"):
-            aliased[addr - 1] = hi
-            aliased[addr] = lo
+            aliased[addr - 1] = hi; aliased[addr] = lo
         if alias_mode in ("alias_plus_1", "alias_both"):
-            aliased[addr + 1] = hi
-            aliased[addr + 2] = lo
+            aliased[addr + 1] = hi; aliased[addr + 2] = lo
     return aliased
+
+
+def _apply_pro2_runtime_config(regs: Dict[int, int]) -> Dict[int, int]:
+    cfg = pro2_snapshot()
+    for addr in (0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x6048):
+        regs[addr] = int(cfg[addr]) & 0xFFFF
+    import struct
+    for addr in (0x400D, 0x6049):
+        raw = struct.pack(">f", float(cfg[addr]))
+        regs[addr], regs[addr + 1] = struct.unpack(">HH", raw)
+    return regs
 
 
 def get_register_map() -> Dict[int, int]:
@@ -156,7 +144,8 @@ def get_register_map() -> Dict[int, int]:
         _build_model_values(values, model, test_mode=test_mode),
         get_float_word_order(),
     )
-
+    if model == "inepro_pro2":
+        regs = _apply_pro2_runtime_config(regs)
     if model in ("inepro_pro380", "inepro_pro2"):
         regs = _apply_legacy_aliases(regs, get_register_alias_mode())
     return regs
