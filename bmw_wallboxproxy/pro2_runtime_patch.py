@@ -1,0 +1,128 @@
+"""Install PRO2-specific Modbus behaviour without changing other meter models."""
+
+import struct
+
+import config
+import dr_client
+import pro2_modbus
+from modbus_codec import append_crc, modbus_crc
+from pro2_state import get_slave_id
+
+_ORIGINAL_DECODED = dr_client._handle_decoded_request
+_ORIGINAL_RTU = dr_client.handle_rtu_request
+_ORIGINAL_TCP = dr_client.handle_modbus_tcp_request
+
+
+def _is_pro2() -> bool:
+    return config.get_meter_model() == "inepro_pro2"
+
+
+def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
+    if not _is_pro2():
+        return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
+
+    if slave_id != get_slave_id():
+        with dr_client.stats_lock:
+            dr_client.stats["wrong_slave"] += 1
+        return None
+
+    if function_code == 6:
+        return pro2_modbus.handle_fc06_pdu(struct.pack(">BHH", 6, start_addr, quantity))
+
+    if function_code == 3:
+        reg_map = dr_client.get_register_map()
+        if quantity < 1 or quantity > 125:
+            return dr_client.build_exception_payload(
+                slave_id, function_code, 3, f"illegal quantity {quantity}"
+            )
+        if any(addr not in reg_map for addr in range(start_addr, start_addr + quantity)):
+            return dr_client.build_exception_payload(
+                slave_id, function_code, 2, "PRO2 illegal data address"
+            )
+        try:
+            # Do not call _ORIGINAL_DECODED here: it compares against the
+            # import-time static SLAVE_ID from config. PRO2 ID is writable at
+            # runtime, so build the read payload directly after validation.
+            return dr_client.build_read_payload(slave_id, function_code, start_addr, quantity)
+        except Exception as exc:
+            return dr_client.build_exception_payload(
+                slave_id, function_code, 4, f"register build failed: {exc}"
+            )
+
+    if function_code == 4:
+        return dr_client.build_exception_payload(
+            slave_id, function_code, 1, "PRO2 map documents FC03 reads"
+        )
+
+    return dr_client.build_exception_payload(
+        slave_id, function_code, 1, "unsupported function code"
+    )
+
+
+def _rtu(frame: bytes):
+    if not _is_pro2():
+        return _ORIGINAL_RTU(frame)
+    if len(frame) < 4:
+        return _ORIGINAL_RTU(frame)
+    if modbus_crc(frame[:-2]) != struct.unpack("<H", frame[-2:])[0]:
+        return _ORIGINAL_RTU(frame)
+
+    slave_id = frame[0]
+    function_code = frame[1]
+    if slave_id != get_slave_id():
+        return None
+
+    # FC16 carries a variable-length PDU and needs its dedicated parser.
+    if function_code == 0x10:
+        payload = pro2_modbus.handle_fc10_pdu(frame[1:-2])
+    elif function_code in (3, 4, 6):
+        if len(frame) < 8:
+            return _ORIGINAL_RTU(frame)
+        start_addr, quantity = struct.unpack(">HH", frame[2:6])
+        payload = _pro2_decoded(slave_id, function_code, start_addr, quantity, "rtu_over_tcp")
+        if payload is None:
+            return None
+    else:
+        if len(frame) >= 8:
+            start_addr, quantity = struct.unpack(">HH", frame[2:6])
+        else:
+            start_addr = quantity = 0
+        payload = _pro2_decoded(slave_id, function_code, start_addr, quantity, "rtu_over_tcp")
+        if payload is None:
+            return None
+
+    return append_crc(bytes([slave_id]) + payload)
+
+
+def _tcp(frame: bytes):
+    if _is_pro2() and len(frame) >= 12 and frame[6] == get_slave_id():
+        transaction_id, protocol_id, length = struct.unpack(">HHH", frame[:6])
+        unit_id = frame[6]
+        if protocol_id != 0 or length != len(frame) - 6:
+            return _ORIGINAL_TCP(frame)
+        pdu = frame[7:]
+        if not pdu:
+            return _ORIGINAL_TCP(frame)
+        function_code = pdu[0]
+        if function_code == 0x10:
+            payload = pro2_modbus.handle_fc10_pdu(pdu)
+        elif function_code in (3, 4, 6):
+            if len(pdu) < 5:
+                return _ORIGINAL_TCP(frame)
+            start_addr, quantity = struct.unpack(">HH", pdu[1:5])
+            payload = _pro2_decoded(unit_id, function_code, start_addr, quantity, "modbus_tcp")
+            if payload is None:
+                return None
+        else:
+            start_addr = struct.unpack(">H", pdu[1:3])[0] if len(pdu) >= 3 else 0
+            quantity = struct.unpack(">H", pdu[3:5])[0] if len(pdu) >= 5 else 0
+            payload = _pro2_decoded(unit_id, function_code, start_addr, quantity, "modbus_tcp")
+            if payload is None:
+                return None
+        return dr_client._finalize_tcp_response(transaction_id, unit_id, payload)
+    return _ORIGINAL_TCP(frame)
+
+
+dr_client._handle_decoded_request = _pro2_decoded
+dr_client.handle_rtu_request = _rtu
+dr_client.handle_modbus_tcp_request = _tcp

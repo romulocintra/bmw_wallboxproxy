@@ -20,6 +20,9 @@ from config import (
     has_ha_auth,
 )
 from ha_client import ha_poller
+# Must load before importing server functions: it installs the PRO2-only
+# Modbus dispatcher wrappers while leaving PRO380/Janitza untouched.
+import pro2_runtime_patch  # noqa: F401
 from dr_client import force_disconnect_dr, tcp_server_loop
 from state import log_net, stop_event
 from webapp import app
@@ -179,6 +182,7 @@ def _build_web_ssl_context():
         print(message, file=sys.stderr)
         raise SystemExit(1)
 
+
 def main():
     _configure_runtime_logging()
     _validate_startup()
@@ -201,6 +205,7 @@ def main():
         use_reloader=USE_RELOADER,
         ssl_context=web_ssl_context,
     )
+
 
 if __name__ == "__main__":
     main()
