@@ -20,21 +20,43 @@ def _is_pro2() -> bool:
 def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
     if not _is_pro2():
         return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
+
     if slave_id != get_slave_id():
         with dr_client.stats_lock:
             dr_client.stats["wrong_slave"] += 1
         return None
+
     if function_code == 6:
         return pro2_modbus.handle_fc06_pdu(struct.pack(">BHH", 6, start_addr, quantity))
-    if function_code in (3, 4):
-        if function_code != 3:
-            return dr_client.build_exception_payload(slave_id, function_code, 1, "PRO2 map documents FC03 reads")
+
+    if function_code == 3:
         reg_map = dr_client.get_register_map()
         if quantity < 1 or quantity > 125:
-            return dr_client.build_exception_payload(slave_id, function_code, 3, f"illegal quantity {quantity}")
+            return dr_client.build_exception_payload(
+                slave_id, function_code, 3, f"illegal quantity {quantity}"
+            )
         if any(addr not in reg_map for addr in range(start_addr, start_addr + quantity)):
-            return dr_client.build_exception_payload(slave_id, function_code, 2, "PRO2 illegal data address")
-    return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
+            return dr_client.build_exception_payload(
+                slave_id, function_code, 2, "PRO2 illegal data address"
+            )
+        try:
+            # Do not call _ORIGINAL_DECODED here: it compares against the
+            # import-time static SLAVE_ID from config. PRO2 ID is writable at
+            # runtime, so build the read payload directly after validation.
+            return dr_client.build_read_payload(slave_id, function_code, start_addr, quantity)
+        except Exception as exc:
+            return dr_client.build_exception_payload(
+                slave_id, function_code, 4, f"register build failed: {exc}"
+            )
+
+    if function_code == 4:
+        return dr_client.build_exception_payload(
+            slave_id, function_code, 1, "PRO2 map documents FC03 reads"
+        )
+
+    return dr_client.build_exception_payload(
+        slave_id, function_code, 1, "unsupported function code"
+    )
 
 
 def _rtu(frame: bytes):
