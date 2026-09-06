@@ -25,6 +25,8 @@ def get_output_values() -> dict: return _snapshot_output_values()
 
 def _build_model_values(values: dict, model: str) -> dict:
     out=dict(values)
+    if model in ("janitza_b21","janitza_b23"):
+        for key in ("p_total","p1","p2","p3","s_total","s1","s2","s3"): out[key]=values[key]*1000.0
     if model in ("inepro_pro2","janitza_b21"):
         out["voltage_avg"]=values["u1"]; out["u2"]=out["u3"]=0.0; out["current_total"]=values["i1"]; out["i2"]=out["i3"]=0.0
         out["p2"]=out["p3"]=0.0; out["q1"]=out["q2"]=out["q3"]=0.0; out["s1"]=abs(values["p1"]); out["s2"]=out["s3"]=0.0; out["pf1"]=values["pf1"]; out["pf2"]=out["pf3"]=0.0
