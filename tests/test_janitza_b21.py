@@ -27,4 +27,4 @@ def test_b21_frequency_is_uint16_at_0_01_hz(monkeypatch):
     monkeypatch.setattr(register_map,"get_meter_model",lambda:"janitza_b21"); monkeypatch.setattr(register_map,"get_test_mode",lambda:False)
     monkeypatch.setattr(register_map,"latest_values",{"u1":230.0,"u2":0.0,"u3":0.0,"i1":1.0,"i2":0.0,"i3":0.0,"p_total":230.0,"p1":230.0,"p2":0.0,"p3":0.0,"freq":50.0,"e_import_total":0.0,"e_export_total":0.0,"power_offset":0.0})
     monkeypatch.setattr(register_map,"get_power_offset_override",lambda:None)
-    regs=register_map.get_register_map(); assert regs[0x5B2C]==5000
+    regs=register_map.get_register_map(); assert regs[0x5B2C]==5000; assert regs[0x5B2D]==0
