@@ -39,7 +39,7 @@ def build_inepro_pro2(values:dict,word_order:str)->Dict[int,int]:
     regs[0x6048]=1; _put_float(regs,enc,0x6049,0.0); return regs
 
 def _build_janitza_b_series(values:dict,single_phase:bool)->Dict[int,int]:
-    """Janitza B21/B23 0x5Bxx map: UINT32/INT32 values, frequency is one UINT16."""
+    """Janitza B21/B23 0x5Bxx map with 32-bit scaled values."""
     regs={}; u32_01,u32_001,s32_001=_scaled_u32(0.1),_scaled_u32(0.01),_scaled_s32(0.01)
     u1,u2,u3=_value(values,"u1"),_value(values,"u2"),_value(values,"u3"); i1,i2,i3=_value(values,"i1"),_value(values,"i2"),_value(values,"i3"); p1,p2,p3=_value(values,"p1"),_value(values,"p2"),_value(values,"p3")
     if single_phase: u2=u3=i2=i3=p2=p3=0.0
@@ -49,7 +49,7 @@ def _build_janitza_b_series(values:dict,single_phase:bool)->Dict[int,int]:
         hi,lo=u32_001(val); regs[addr],regs[addr+1]=hi,lo
     for addr,val in ((0x5B14,_value(values,"p_total")),(0x5B16,p1),(0x5B18,p2),(0x5B1A,p3),(0x5B1C,_value(values,"q_total")),(0x5B1E,0.0),(0x5B20,0.0),(0x5B22,0.0),(0x5B24,_value(values,"s_total")),(0x5B26,abs(p1)),(0x5B28,abs(p2)),(0x5B2A,abs(p3))):
         hi,lo=s32_001(val); regs[addr],regs[addr+1]=hi,lo
-    regs[0x5B2C]=int(round(_value(values,"freq")/0.01))&0xFFFF
+    hi,lo=u32_001(_value(values,"freq")); regs[0x5B2C],regs[0x5B2D]=hi,lo
     return regs
 
 def build_janitza_b23(values:dict,word_order:str="abcd")->Dict[int,int]: return _build_janitza_b_series(values,False)
