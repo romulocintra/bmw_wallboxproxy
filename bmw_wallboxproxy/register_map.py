@@ -1,9 +1,15 @@
-import os
 from typing import Dict
 
-from config import get_meter_model
+from config import get_meter_model, get_test_mode
 from meter_models import build_register_map as build_model_register_map
-from state import get_float_word_order, get_phase_order, get_power_offset_override, get_register_alias_mode, latest_values, state_lock
+from state import (
+    get_float_word_order,
+    get_phase_order,
+    get_power_offset_override,
+    get_register_alias_mode,
+    latest_values,
+    state_lock,
+)
 from test_mode import next_test_values
 
 
@@ -23,30 +29,42 @@ def _snapshot_output_values() -> dict:
     order = get_phase_order()
     u1, u2, u3 = _apply_phase_order(order, get("u1"), get("u2"), get("u3"))
     i1, i2, i3 = _apply_phase_order(order, get("i1"), get("i2"), get("i3"))
+
     override = get_power_offset_override()
-    offset_watts = override if override is not None else snap.get("power_offset", 0.0)
-    offset_kw = offset_watts / 1000.0
+    offset_kw = (override if override is not None else snap.get("power_offset", 0.0)) / 1000.0
     p_total = get("p_total") / 1000.0 + offset_kw
     raw_p1 = get("p1") / 1000.0 + offset_kw / 3.0
     raw_p2 = get("p2") / 1000.0 + offset_kw / 3.0
     raw_p3 = get("p3") / 1000.0 + offset_kw / 3.0
     p1, p2, p3 = _apply_phase_order(order, raw_p1, raw_p2, raw_p3)
-    freq = get("freq")
+
     e_import = get("e_import_total")
     e_export = get("e_export_total")
-
     s_total = abs(p_total)
     s1, s2, s3 = abs(p1), abs(p2), abs(p3)
 
     return {
         "voltage_avg": (u1 + u2 + u3) / 3.0,
-        "u1": u1, "u2": u2, "u3": u3,
-        "freq": freq,
+        "u1": u1,
+        "u2": u2,
+        "u3": u3,
+        "freq": get("freq"),
         "current_total": i1 + i2 + i3,
-        "i1": i1, "i2": i2, "i3": i3,
-        "p_total": p_total, "p1": p1, "p2": p2, "p3": p3,
-        "q_total": 0.0, "q1": 0.0, "q2": 0.0, "q3": 0.0,
-        "s_total": s_total, "s1": s1, "s2": s2, "s3": s3,
+        "i1": i1,
+        "i2": i2,
+        "i3": i3,
+        "p_total": p_total,
+        "p1": p1,
+        "p2": p2,
+        "p3": p3,
+        "q_total": 0.0,
+        "q1": 0.0,
+        "q2": 0.0,
+        "q3": 0.0,
+        "s_total": s_total,
+        "s1": s1,
+        "s2": s2,
+        "s3": s3,
         "pf_total": p_total / s_total if s_total else 0.0,
         "pf1": p1 / s1 if s1 else 0.0,
         "pf2": p2 / s2 if s2 else 0.0,
@@ -62,25 +80,42 @@ def get_output_values() -> dict:
     return _snapshot_output_values()
 
 
-def _build_model_values(values: dict, model: str) -> dict:
+def _build_model_values(values: dict, model: str, test_mode: bool = False) -> dict:
     model_values = dict(values)
-    if model == "janitza_b23":
+
+    if model in ("janitza_b21", "janitza_b23"):
+        # The internal state uses kW; Janitza B-series power registers use
+        # 0.01 W, so convert to watts exactly once here.
         for key in ("p_total", "p1", "p2", "p3", "s_total", "s1", "s2", "s3"):
             model_values[key] = values[key] * 1000.0
-    elif model == "inepro_pro2":
+
+    if model in ("inepro_pro2", "janitza_b21"):
+        # PRO2/B21 are single-phase physical meters. Keep the measured total
+        # power from the source for live data. In deterministic test mode the
+        # source is a generic three-phase vector, so the physical single-phase
+        # total must instead be represented by L1.
         model_values["voltage_avg"] = values["u1"]
         model_values["u2"] = 0.0
         model_values["u3"] = 0.0
         model_values["current_total"] = values["i1"]
         model_values["i2"] = 0.0
         model_values["i3"] = 0.0
+        if test_mode:
+            model_values["p_total"] = model_values["p1"]
         model_values["p2"] = 0.0
         model_values["p3"] = 0.0
-        model_values["q1"] = model_values["q2"] = model_values["q3"] = 0.0
-        model_values["s1"] = values["p1"]
-        model_values["s2"] = model_values["s3"] = 0.0
-        model_values["pf1"] = values["pf1"]
-        model_values["pf2"] = model_values["pf3"] = 0.0
+        model_values["q_total"] = 0.0
+        model_values["q1"] = 0.0
+        model_values["q2"] = 0.0
+        model_values["q3"] = 0.0
+        model_values["s_total"] = model_values["s1"]
+        model_values["s1"] = abs(model_values["p1"])
+        model_values["s2"] = 0.0
+        model_values["s3"] = 0.0
+        model_values["pf_total"] = model_values["pf1"]
+        model_values["pf2"] = 0.0
+        model_values["pf3"] = 0.0
+
     return model_values
 
 
@@ -114,11 +149,13 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
 
 def get_register_map() -> Dict[int, int]:
     model = get_meter_model()
-    if model == "inepro_pro2" and os.environ.get("TEST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}:
-        values = next_test_values()
-    else:
-        values = _snapshot_output_values()
-    regs = build_model_register_map(model, _build_model_values(values, model), get_float_word_order())
+    test_mode = get_test_mode()
+    values = next_test_values() if test_mode else _snapshot_output_values()
+    regs = build_model_register_map(
+        model,
+        _build_model_values(values, model, test_mode=test_mode),
+        get_float_word_order(),
+    )
 
     if model in ("inepro_pro380", "inepro_pro2"):
         regs = _apply_legacy_aliases(regs, get_register_alias_mode())
