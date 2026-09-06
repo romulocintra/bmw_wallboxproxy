@@ -13,6 +13,8 @@ def _scaled_s32(scale: float) -> RegisterEncoder:
     def encode(value: float) -> tuple[int, ...]:
         raw=max(-0x80000000,min(int(round(float(value)/scale)),0x7FFFFFFF))&0xFFFFFFFF; return ((raw>>16)&0xFFFF,raw&0xFFFF)
     return encode
+def _scaled_u16(scale: float) -> int:
+    raw=max(0,min(int(round(float(scale))),0xFFFF)); return raw
 def _put_float(regs: Dict[int,int], enc: RegisterEncoder, addr:int, value:float)->None:
     hi,lo=enc(value); regs[addr],regs[addr+1]=hi,lo
 def _put_u16(regs: Dict[int,int], addr:int, value:int)->None: regs[addr]=int(value)&0xFFFF
@@ -28,7 +30,6 @@ def build_inepro_pro380(values:dict,word_order:str)->Dict[int,int]:
     regs[0x6048]=0; _put_float(regs,enc,0x6049,0.0); return regs
 
 def build_inepro_pro2(values:dict,word_order:str)->Dict[int,int]:
-    """Dedicated single-phase Inepro PRO2-Mod map; PRO2 FLOAT32 values are ABCD."""
     enc=_float_encoder("abcd"); regs={}
     for addr,value in ((0x4000,0),(0x4001,0),(0x4002,0),(0x4003,1),(0x4004,9600),(0x400B,100),(0x400F,1),(0x4010,10),(0x4011,1),(0x4012,ord("F")),(0x4015,0),(0x4016,0),(0x4017,1),(0x401B,0),(0x401C,0),(0x401D,0),(0x401E,0)): _put_u16(regs,addr,value)
     for addr in (0x4005,0x4007,0x4009): _put_float(regs,enc,addr,0.0)
@@ -39,7 +40,7 @@ def build_inepro_pro2(values:dict,word_order:str)->Dict[int,int]:
     regs[0x6048]=1; _put_float(regs,enc,0x6049,0.0); return regs
 
 def _build_janitza_b_series(values:dict,single_phase:bool)->Dict[int,int]:
-    """Janitza B21/B23 0x5Bxx map with 32-bit scaled values."""
+    """Janitza B21/B23 0x5Bxx map with documented scaled integer values."""
     regs={}; u32_01,u32_001,s32_001=_scaled_u32(0.1),_scaled_u32(0.01),_scaled_s32(0.01)
     u1,u2,u3=_value(values,"u1"),_value(values,"u2"),_value(values,"u3"); i1,i2,i3=_value(values,"i1"),_value(values,"i2"),_value(values,"i3"); p1,p2,p3=_value(values,"p1"),_value(values,"p2"),_value(values,"p3")
     if single_phase: u2=u3=i2=i3=p2=p3=0.0
@@ -49,7 +50,11 @@ def _build_janitza_b_series(values:dict,single_phase:bool)->Dict[int,int]:
         hi,lo=u32_001(val); regs[addr],regs[addr+1]=hi,lo
     for addr,val in ((0x5B14,_value(values,"p_total")),(0x5B16,p1),(0x5B18,p2),(0x5B1A,p3),(0x5B1C,_value(values,"q_total")),(0x5B1E,0.0),(0x5B20,0.0),(0x5B22,0.0),(0x5B24,_value(values,"s_total")),(0x5B26,abs(p1)),(0x5B28,abs(p2)),(0x5B2A,abs(p3))):
         hi,lo=s32_001(val); regs[addr],regs[addr+1]=hi,lo
-    hi,lo=u32_001(_value(values,"freq")); regs[0x5B2C],regs[0x5B2D]=hi,lo
+    # B21/B23 frequency is ONE 16-bit register at 0x5B2C, resolution 0.01 Hz.
+    # 0x5B2D is the total power phase-angle register and must not contain the
+    # low word of the frequency value.
+    regs[0x5B2C]=_scaled_u16(_value(values,"freq")/0.01)
+    regs[0x5B2D]=0
     return regs
 
 def build_janitza_b23(values:dict,word_order:str="abcd")->Dict[int,int]: return _build_janitza_b_series(values,False)
