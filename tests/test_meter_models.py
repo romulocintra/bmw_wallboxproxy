@@ -7,12 +7,7 @@ PACKAGE_DIR = Path(__file__).resolve().parents[1] / "bmw_wallboxproxy"
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGE_DIR))
 
-from meter_models import (
-    build_janitza_b23,
-    build_inepro_pro2,
-    build_inepro_pro380,
-    build_register_map,
-)
+from meter_models import build_janitza_b23, build_inepro_pro2, build_inepro_pro380, build_register_map
 
 
 def _u32(regs, addr):
@@ -25,8 +20,7 @@ def _s32(regs, addr):
 
 
 def _f32(regs, addr):
-    raw = struct.pack(">HH", regs[addr], regs[addr + 1])
-    return struct.unpack(">f", raw)[0]
+    return struct.unpack(">f", struct.pack(">HH", regs[addr], regs[addr + 1]))[0]
 
 
 def test_inepro_pro380_documented_measurement_encoding():
@@ -46,11 +40,6 @@ def test_inepro_pro380_energy_registers_match_documented_addresses():
     assert math.isclose(_f32(regs, 0x6000), 1234.5, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x600C), 1000.25, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x6018), 234.25, rel_tol=1e-6)
-    for addr in (0x6002, 0x6004, 0x6006, 0x6008, 0x600A, 0x600E, 0x6010, 0x6012, 0x6014, 0x6016,
-                 0x601A, 0x601C, 0x601E, 0x6020, 0x6022, 0x6024, 0x6026, 0x6028, 0x602A, 0x602C,
-                 0x602E, 0x6030, 0x6032, 0x6034, 0x6036, 0x6038, 0x603A, 0x603C, 0x603E, 0x6040,
-                 0x6042, 0x6044, 0x6046):
-        assert math.isclose(_f32(regs, addr), 0.0, abs_tol=1e-9)
     assert regs[0x6048] == 0
     assert math.isclose(_f32(regs, 0x6049), 0.0, abs_tol=1e-9)
 
@@ -76,6 +65,16 @@ def test_inepro_pro2_identity_and_default_configuration():
     assert _u32(regs, 0x401D) == 0
 
 
+def test_inepro_pro2_excludes_pro380_only_registers():
+    regs = build_inepro_pro2({"u1": 230.0, "i1": 16.21, "p_total": 3.7285}, "abcd")
+    for addr in (0x400C, 0x4013, 0x4014, 0x4018, 0x4019, 0x401A, 0x401F,
+                 0x5004, 0x5006, 0x500E, 0x5010, 0x5014, 0x5016, 0x5018,
+                 0x501C, 0x501E, 0x5020, 0x5024, 0x5026, 0x5028, 0x502C, 0x502E, 0x5030,
+                 0x6006, 0x6008, 0x600A, 0x6012, 0x6014, 0x6016, 0x601E, 0x6020, 0x6022,
+                 0x602A, 0x602C, 0x602E, 0x6036, 0x6038, 0x603A, 0x6042, 0x6044, 0x6046):
+        assert addr not in regs
+
+
 def test_inepro_pro2_measurements_use_physical_register_types():
     regs = build_inepro_pro2({"voltage_avg": 230.0, "u1": 230.0, "freq": 50.0, "current_total": 16.21,
                               "i1": 16.21, "p_total": 3.7285, "q_total": 0.0, "s_total": 3.7285, "pf_total": 1.0}, "abcd")
@@ -90,26 +89,18 @@ def test_inepro_pro2_measurements_use_physical_register_types():
     assert math.isclose(_f32(regs, 0x502A), 1.0, rel_tol=1e-6)
 
 
-def test_inepro_pro2_energy_map_is_complete_and_does_not_duplicate_aggregates():
+def test_inepro_pro2_energy_map_contains_only_supported_fields():
     regs = build_inepro_pro2({"e_total": 123.4, "e_import": 120.0, "e_export": 3.4}, "abcd")
     assert math.isclose(_f32(regs, 0x6000), 123.4, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x6002), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x6004), 0.0, abs_tol=1e-9)
     assert math.isclose(_f32(regs, 0x600C), 120.0, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x6018), 3.4, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x6024), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x6030), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x603C), 0.0, abs_tol=1e-9)
     assert regs[0x6048] == 1
-    for addr in (0x6002, 0x6004, 0x6006, 0x6008, 0x600A, 0x600E, 0x6010, 0x6012, 0x6014, 0x6016,
-                 0x601A, 0x601C, 0x601E, 0x6020, 0x6022, 0x6024, 0x6026, 0x6028, 0x602A, 0x602C,
-                 0x602E, 0x6030, 0x6032, 0x6034, 0x6036, 0x6038, 0x603A, 0x603C, 0x603E, 0x6040,
-                 0x6042, 0x6044, 0x6046):
-        assert math.isclose(_f32(regs, addr), 0.0, abs_tol=1e-9)
     assert math.isclose(_f32(regs, 0x6049), 0.0, abs_tol=1e-9)
-
-
-def test_inepro_pro2_is_single_phase():
-    regs = build_inepro_pro2({"voltage_avg": 230.0, "u1": 230.0, "freq": 50.0, "current_total": 16.21,
-                              "i1": 16.21, "p_total": 3.7285, "q_total": 0.0, "s_total": 3.7285, "pf_total": 1.0}, "abcd")
-    for addr in (0x5004, 0x5006, 0x500E, 0x5010, 0x5014, 0x5016, 0x5018, 0x501C, 0x501E,
-                 0x5020, 0x5024, 0x5026, 0x5028, 0x502C, 0x502E, 0x5030):
-        assert math.isclose(_f32(regs, addr), 0.0, abs_tol=1e-9)
 
 
 def test_meter_model_dispatch_and_invalid_model():
