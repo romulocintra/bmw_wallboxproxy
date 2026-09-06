@@ -1,14 +1,9 @@
-"""Install PRO2-specific Modbus behaviour without changing other meter models.
-
-The existing transport code is intentionally shared. This module wraps its
-request handlers at import time so PRO2 can implement the documented FC06/FC16
-writes and return exception 02 for addresses that are not in the physical
-PRO2 map, while PRO380/Janitza retain their existing behaviour.
-"""
+"""Install PRO2-specific Modbus behaviour without changing other meter models."""
 
 import struct
 
 import dr_client
+import pro2_modbus
 from config import get_meter_model
 from modbus_codec import append_crc, modbus_crc
 from pro2_modbus import handle_fc10_pdu
@@ -34,8 +29,7 @@ def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
         return None
 
     if function_code == 6:
-        pdu = struct.pack(">BHH", 6, start_addr, quantity)
-        return dr_client.pro2_modbus.handle_fc06_pdu(pdu)
+        return pro2_modbus.handle_fc06_pdu(struct.pack(">BHH", 6, start_addr, quantity))
 
     if function_code in (3, 4):
         if function_code != 3:
@@ -56,8 +50,7 @@ def _rtu(frame: bytes):
         slave_id = frame[0]
         if slave_id != get_slave_id():
             return None
-        pdu = frame[1:-2]
-        payload = handle_fc10_pdu(pdu)
+        payload = handle_fc10_pdu(frame[1:-2])
         return append_crc(bytes([slave_id]) + payload)
     return _ORIGINAL_RTU(frame)
 
