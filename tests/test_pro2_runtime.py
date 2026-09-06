@@ -2,6 +2,8 @@ import struct
 import sys
 from pathlib import Path
 
+import pytest
+
 PACKAGE_DIR = Path(__file__).resolve().parents[1] / "bmw_wallboxproxy"
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGE_DIR))
@@ -10,8 +12,15 @@ import config
 import dr_client
 import pro2_runtime_patch  # noqa: F401 - installs the PRO2 wrappers
 from modbus_codec import append_crc, modbus_crc
-from pro2_state import get_slave_id, snapshot, write_fc06
+from pro2_state import get_slave_id, reset_state, write_fc06
 from register_map import get_register_map
+
+
+@pytest.fixture(autouse=True)
+def _reset_pro2_runtime_state():
+    reset_state()
+    yield
+    reset_state()
 
 
 def _rtu(body: bytes) -> bytes:
@@ -76,9 +85,6 @@ def test_pro2_modbus_id_write_changes_active_slave(monkeypatch):
     response = dr_client.handle_rtu_request(request)
     assert response is not None
     assert response[:3] == bytes.fromhex("0A 03 04")
-
-    # Restore the deterministic default for following tests.
-    write_fc06(0x4003, 1)
 
 
 def test_pro2_fc16_bad_float_request_returns_exception_03(monkeypatch):
