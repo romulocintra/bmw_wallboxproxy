@@ -20,6 +20,7 @@ _DEFAULT_CONFIG = {
 }
 
 _config = dict(_DEFAULT_CONFIG)
+_day_baseline_import = None
 
 _FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x6048}
 _FC10_FLOAT_REGS = {0x400D, 0x6049}
@@ -51,8 +52,8 @@ def get_identity() -> Dict[int, object]:
 
     Serial number, meter code and firmware versions are per-device values;
     the Inepro manual defines their registers/types but does not publish one
-    universal value. They are therefore environment-configurable and default
-    to zero rather than pretending to be a real meter identity.
+    universal value. They are environment-configurable and default to zero
+    rather than pretending to be a real meter identity.
     """
     serial = max(0, min(_env_int("PRO2_SERIAL", 0), 0xFFFFFFFF))
     return {
@@ -88,11 +89,29 @@ def get_slave_id(default: int = 1) -> int:
         return int(_config.get(0x4003, default))
 
 
+def update_day_counter(import_kwh: float) -> float:
+    """Advance the resettable PRO2 forward-energy day counter."""
+    global _day_baseline_import
+    value = max(0.0, float(import_kwh))
+    with _lock:
+        if _day_baseline_import is None:
+            _day_baseline_import = value
+        elif value >= _day_baseline_import:
+            _config[0x6049] = max(0.0, value - _day_baseline_import)
+        else:
+            # Source counter was reset/decreased; start a new baseline.
+            _day_baseline_import = value
+            _config[0x6049] = 0.0
+        return float(_config[0x6049])
+
+
 def reset_state() -> None:
     """Restore emulator-only writable state to documented defaults."""
+    global _day_baseline_import
     with _lock:
         _config.clear()
         _config.update(_DEFAULT_CONFIG)
+        _day_baseline_import = None
 
 
 def write_fc06(addr: int, value: int) -> None:
@@ -123,10 +142,15 @@ def write_fc10(addr: int, words: Tuple[int, int]) -> None:
         raise ValueError("invalid PRO2 S0 output rate")
     if addr == 0x6049 and value != 0.0:
         raise ValueError("PRO2 resettable day counter write is reset-to-zero")
+    if addr == 0x6049:
+        reset_day_counter()
+        return
     with _lock:
         _config[addr] = float(value)
 
 
 def reset_day_counter() -> None:
+    global _day_baseline_import
     with _lock:
         _config[0x6049] = 0.0
+        _day_baseline_import = None
