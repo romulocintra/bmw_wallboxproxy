@@ -2,7 +2,7 @@ from typing import Dict
 
 import config
 from meter_models import build_register_map as build_model_register_map
-from pro2_state import snapshot as pro2_snapshot
+from pro2_state import get_register, snapshot as pro2_snapshot, update_day_counter
 from state import (
     get_float_word_order,
     get_phase_order,
@@ -15,10 +15,7 @@ from test_mode import next_test_values
 
 
 def get_meter_model() -> str:
-    """Compatibility accessor used by existing tests/integrations.
-
-    Keep model selection dynamic by delegating to config at call time.
-    """
+    """Compatibility accessor used by existing tests/integrations."""
     return config.get_meter_model()
 
 
@@ -87,6 +84,8 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
             model_values[key] = values[key] * 1000.0
 
     if model in ("inepro_pro2", "janitza_b21"):
+        for key in ("p_total", "p1", "p2", "p3", "s_total", "s1", "s2", "s3"):
+            model_values[key] = values[key]
         model_values["voltage_avg"] = values["u1"]
         model_values["u2"] = 0.0
         model_values["u3"] = 0.0
@@ -108,6 +107,21 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
         model_values["pf_total"] = model_values["pf1"]
         model_values["pf2"] = 0.0
         model_values["pf3"] = 0.0
+
+    if model == "inepro_pro2":
+        cfg = pro2_snapshot()
+        identity_cfg = {
+            "modbus_id": int(cfg[0x4003]),
+            "baud": int(cfg[0x4004]),
+            "s0_rate": float(cfg[0x400D]),
+            "combination_code": int(cfg[0x400F]),
+            "lcd_cycle": int(cfg[0x4010]),
+            "parity": int(cfg[0x4011]),
+            "power_down_counter": int(cfg[0x4016]),
+            "tariff": int(cfg[0x6048]),
+        }
+        model_values.update(identity_cfg)
+        model_values["e_day_counter"] = update_day_counter(values["e_import"])
 
     return model_values
 
@@ -140,13 +154,9 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
 
 
 def _apply_pro2_runtime_config(regs: Dict[int, int]) -> Dict[int, int]:
-    cfg = pro2_snapshot()
-    for addr in (0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x6048):
-        regs[addr] = int(cfg[addr]) & 0xFFFF
-    import struct
-    for addr in (0x400D, 0x6049):
-        raw = struct.pack(">f", float(cfg[addr]))
-        regs[addr], regs[addr + 1] = struct.unpack(">HH", raw)
+    # The PRO2 builder already receives the writable runtime state. Keep this
+    # compatibility hook so callers relying on the old path still see the
+    # current values.
     return regs
 
 
