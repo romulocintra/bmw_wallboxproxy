@@ -1,3 +1,4 @@
+import os
 import struct
 import sys
 from pathlib import Path
@@ -7,6 +8,7 @@ if str(PACKAGE_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGE_DIR))
 
 import dr_client
+import pro2_state
 from meter_models import build_inepro_pro2
 from modbus_codec import append_crc, modbus_crc
 
@@ -64,8 +66,50 @@ def test_pro2_float_encoding_is_always_abcd():
     assert math_is_close(_f32(regs, 0x5012), 3.68)
 
 
-def math_is_close(a, b):
-    return abs(a - b) < 1e-6
+def test_pro2_documented_defaults_and_dynamic_direction():
+    forward = build_inepro_pro2({"p_total": 3.68, "e_import": 10.0, "e_export": 2.0}, "abcd")
+    reverse = build_inepro_pro2({"p_total": -3.68, "e_import": 10.0, "e_export": 2.0}, "abcd")
+    assert _f32(forward, 0x400D) == 10000.0
+    assert forward[0x400B] == 100
+    assert forward[0x400F] == 1
+    assert forward[0x4010] == 10
+    assert forward[0x4011] == 1
+    assert forward[0x4012] == ord("F")
+    assert reverse[0x4012] == ord("R")
+    assert _f32(forward, 0x6000) == 10.0
+
+
+def test_pro2_combination_codes_calculate_total_active_energy():
+    values = {"e_import": 10.0, "e_export": 3.0}
+    expected = {1: 10.0, 4: 3.0, 5: 13.0, 6: -7.0, 9: 7.0, 10: 7.0}
+    for combo, total in expected.items():
+        regs = build_inepro_pro2({**values, "combination_code": combo}, "abcd")
+        assert _f32(regs, 0x6000) == total
+
+
+def test_pro2_identity_is_environment_configurable(monkeypatch):
+    monkeypatch.setenv("PRO2_SERIAL", "0x12345678")
+    monkeypatch.setenv("PRO2_METER_CODE", "0x0042")
+    monkeypatch.setenv("PRO2_PROTOCOL_VERSION", "1.0")
+    monkeypatch.setenv("PRO2_SOFTWARE_VERSION", "2.18")
+    monkeypatch.setenv("PRO2_HARDWARE_VERSION", "1.1")
+    monkeypatch.setenv("PRO2_METER_AMPS", "100")
+    regs = build_inepro_pro2({}, "abcd")
+    assert regs[0x4000] == 0x1234
+    assert regs[0x4001] == 0x5678
+    assert regs[0x4002] == 0x0042
+    assert _f32(regs, 0x4005) == 1.0
+    assert _f32(regs, 0x4007) == 2.18
+    assert _f32(regs, 0x4009) == 1.1
+
+
+def test_pro2_day_counter_is_resettable():
+    pro2_state.reset_state()
+    assert pro2_state.update_day_counter(100.0) == 0.0
+    assert pro2_state.update_day_counter(101.5) == 1.5
+    pro2_state.reset_day_counter()
+    assert pro2_state.update_day_counter(101.5) == 0.0
+    assert pro2_state.update_day_counter(102.0) == 0.5
 
 
 def test_wallbox_current_request_and_pro2_response_vector(monkeypatch):
@@ -108,3 +152,7 @@ def test_documented_pro2_write_command_vectors_have_valid_modbus_crc():
         frame = bytes.fromhex(vector)
         assert append_crc(frame)[:-2] == frame
         assert struct.unpack("<H", append_crc(frame)[-2:])[0] == modbus_crc(frame)
+
+
+def math_is_close(a, b):
+    return abs(a - b) < 1e-6

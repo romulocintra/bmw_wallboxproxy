@@ -1,12 +1,16 @@
 from typing import Callable, Dict
+
 from modbus_codec import float_to_words, to_float32_safe
+from pro2_state import get_identity
 
 RegisterEncoder = Callable[[float], tuple[int, ...]]
+
 
 def _float_encoder(word_order: str) -> RegisterEncoder:
     def encode(value: float) -> tuple[int, ...]:
         return float_to_words(to_float32_safe(value), word_order)
     return encode
+
 
 def _scaled_u32(scale: float) -> RegisterEncoder:
     def encode(value: float) -> tuple[int, ...]:
@@ -14,46 +18,69 @@ def _scaled_u32(scale: float) -> RegisterEncoder:
         return ((raw >> 16) & 0xFFFF, raw & 0xFFFF)
     return encode
 
+
 def _scaled_s32(scale: float) -> RegisterEncoder:
     def encode(value: float) -> tuple[int, ...]:
         raw = max(-0x80000000, min(int(round(float(value) / scale)), 0x7FFFFFFF)) & 0xFFFFFFFF
         return ((raw >> 16) & 0xFFFF, raw & 0xFFFF)
     return encode
 
+
 def _scaled_u16(scale: float) -> int:
     return max(0, min(int(round(float(scale))), 0xFFFF))
+
 
 def _put_float(regs: Dict[int, int], enc: RegisterEncoder, addr: int, value: float) -> None:
     hi, lo = enc(value)
     regs[addr], regs[addr + 1] = hi, lo
 
+
 def _put_u16(regs: Dict[int, int], addr: int, value: int) -> None:
     regs[addr] = int(value) & 0xFFFF
+
 
 def _value(values: dict, name: str, default: float = 0.0) -> float:
     return float(values.get(name, default))
 
+
 def _inepro_energy_values(values: dict) -> dict[int, float]:
+    """Build the non-starred PRO2 energy registers from forward/reverse data."""
+    forward = _value(values, "e_import")
+    reverse = _value(values, "e_export")
+    combo = int(values.get("combination_code", 1))
+    if combo == 1:
+        total = forward
+    elif combo == 4:
+        total = reverse
+    elif combo == 5:
+        total = forward + reverse
+    elif combo == 6:
+        total = reverse - forward
+    elif combo in (9, 10):
+        total = forward - reverse
+    else:
+        total = forward
     return {
-        0x6000: _value(values, "e_total"),
-        0x6002: 0.0,
-        0x6004: 0.0,
-        0x600C: _value(values, "e_import"),
-        0x600E: 0.0,
-        0x6010: 0.0,
-        0x6018: _value(values, "e_export"),
-        0x601A: 0.0,
-        0x601C: 0.0,
-        0x6024: 0.0,
-        0x6026: 0.0,
-        0x6028: 0.0,
-        0x6030: 0.0,
-        0x6032: 0.0,
-        0x6034: 0.0,
-        0x603C: 0.0,
-        0x603E: 0.0,
-        0x6040: 0.0,
+        0x6000: total,
+        0x6002: _value(values, "e_t1_total"),
+        0x6004: _value(values, "e_t2_total"),
+        0x600C: forward,
+        0x600E: _value(values, "e_t1_forward"),
+        0x6010: _value(values, "e_t2_forward"),
+        0x6018: reverse,
+        0x601A: _value(values, "e_t1_reverse"),
+        0x601C: _value(values, "e_t2_reverse"),
+        0x6024: _value(values, "e_reactive_total"),
+        0x6026: _value(values, "e_t1_reactive"),
+        0x6028: _value(values, "e_t2_reactive"),
+        0x6030: _value(values, "e_forward_reactive"),
+        0x6032: _value(values, "e_t1_forward_reactive"),
+        0x6034: _value(values, "e_t2_forward_reactive"),
+        0x603C: _value(values, "e_reverse_reactive"),
+        0x603E: _value(values, "e_t1_reverse_reactive"),
+        0x6040: _value(values, "e_t2_reverse_reactive"),
     }
+
 
 def _inepro_pro2_measurement_values(values: dict) -> dict[int, float]:
     return {
@@ -67,6 +94,7 @@ def _inepro_pro2_measurement_values(values: dict) -> dict[int, float]:
         0x5022: _value(values, "s_total"),
         0x502A: _value(values, "pf_total"),
     }
+
 
 def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
     enc = _float_encoder(word_order)
@@ -95,40 +123,63 @@ def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
     _put_float(regs, enc, 0x6049, 0.0)
     return regs
 
-def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
-    """Build only the registers actually implemented by the physical PRO2-Mod.
 
-    The Inepro manual marks the L2/L3, CT-ratio and phase-specific registers
-    with '*' as PRO380-only. They must therefore not be fabricated as zeroes
-    in a PRO2 response. Unknown/unsupported addresses are handled by the
-    Modbus layer as Illegal Data Address (exception 02).
+def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
+    """Build the documented non-PRO380 PRO2-Mod register map.
+
+    The manual explicitly marks L2/L3, CT-ratio and phase-specific entries
+    with '*' as PRO380-only. PRO2 therefore exposes only the registers listed
+    here; unsupported addresses are rejected by the Modbus dispatcher.
     """
     enc = _float_encoder("abcd")
     regs: Dict[int, int] = {}
+    identity = get_identity()
 
-    # Documented PRO2 identity/configuration registers. Serial number,
-    # firmware/hardware versions, checksum and status are device-specific and
-    # remain explicit placeholders until the real meter identity is supplied.
+    serial = int(identity[0x4000])
+    _put_u16(regs, 0x4000, (serial >> 16) & 0xFFFF)
+    _put_u16(regs, 0x4001, serial & 0xFFFF)
+    _put_u16(regs, 0x4002, int(identity[0x4002]))
+    _put_u16(regs, 0x400B, int(identity[0x400B]))
+    for addr in (0x4005, 0x4007, 0x4009):
+        _put_float(regs, enc, addr, float(identity[addr]))
+
+    combo = int(values.get("combination_code", 1))
+    tariff = int(values.get("tariff", 1))
+    current = _value(values, "p_total")
+    direction = ord("R") if current < 0 else ord("F")
+
     for addr, value in (
-        (0x4000, 0), (0x4001, 0), (0x4002, 0), (0x4003, 1), (0x4004, 9600),
-        (0x400B, 100), (0x400F, 1), (0x4010, 10), (0x4011, 1), (0x4012, ord("F")),
-        (0x4015, 0), (0x4016, 0), (0x4017, 1), (0x401B, 0), (0x401C, 0),
-        (0x401D, 0), (0x401E, 0),
+        (0x4003, int(values.get("modbus_id", 1))),
+        (0x4004, int(values.get("baud", 9600))),
+        (0x400F, combo),
+        (0x4010, int(values.get("lcd_cycle", 10))),
+        (0x4011, int(values.get("parity", 1))),
+        (0x4012, direction),
+        (0x4015, 0),
+        (0x4016, int(values.get("power_down_counter", 0))),
+        # The manual defines the field but not the numeric quadrant encoding.
+        # Preserve the documented/default forward quadrant until a real meter
+        # capture supplies the vendor-specific mapping.
+        (0x4017, 1),
+        (0x401B, int(values.get("checksum", 0))),
+        (0x401C, 0),
+        (0x401D, int(values.get("active_status", 0))),
+        (0x401E, 0),
+        (0x6048, tariff),
     ):
         _put_u16(regs, addr, value)
-    for addr in (0x4005, 0x4007, 0x4009):
-        _put_float(regs, enc, addr, 0.0)
-    _put_float(regs, enc, 0x400D, 1000.0)
+
+    _put_float(regs, enc, 0x400D, _value(values, "s0_rate", 10000.0))
 
     for addr, value in _inepro_pro2_measurement_values(values).items():
         _put_float(regs, enc, addr, value)
 
-    # Only non-starred PRO2 energy registers from the official map.
     for addr, value in _inepro_energy_values(values).items():
         _put_float(regs, enc, addr, value)
-    regs[0x6048] = 1
-    _put_float(regs, enc, 0x6049, 0.0)
+
+    _put_float(regs, enc, 0x6049, _value(values, "e_day_counter"))
     return regs
+
 
 def _build_janitza_b_series(values: dict, single_phase: bool) -> Dict[int, int]:
     regs = {}
@@ -148,11 +199,14 @@ def _build_janitza_b_series(values: dict, single_phase: bool) -> Dict[int, int]:
     regs[0x5B2D] = 0
     return regs
 
+
 def build_janitza_b23(values: dict, word_order: str = "abcd") -> Dict[int, int]:
     return _build_janitza_b_series(values, False)
 
+
 def build_janitza_b21(values: dict, word_order: str = "abcd") -> Dict[int, int]:
     return _build_janitza_b_series(values, True)
+
 
 METER_BUILDERS = {
     "inepro_pro380": build_inepro_pro380,
@@ -160,6 +214,7 @@ METER_BUILDERS = {
     "janitza_b23": build_janitza_b23,
     "janitza_b21": build_janitza_b21,
 }
+
 
 def build_register_map(model: str, values: dict, word_order: str = "abcd") -> Dict[int, int]:
     try:
