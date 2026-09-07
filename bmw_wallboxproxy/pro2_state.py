@@ -1,5 +1,7 @@
 """Runtime configuration/state for the Inepro PRO2-Mod emulator."""
 
+import os
+import struct
 from threading import Lock
 from typing import Dict, Tuple
 
@@ -8,7 +10,7 @@ _lock = Lock()
 _DEFAULT_CONFIG = {
     0x4003: 1,
     0x4004: 9600,
-    0x400D: 1000.0,
+    0x400D: 10000.0,
     0x400F: 1,
     0x4010: 10,
     0x4011: 1,
@@ -22,6 +24,45 @@ _config = dict(_DEFAULT_CONFIG)
 _FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x6048}
 _FC10_FLOAT_REGS = {0x400D, 0x6049}
 _S0_RATES = (10000.0, 2000.0, 1000.0, 100.0, 10.0, 1.0, 0.1, 0.01)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw.strip(), 0)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw.strip())
+    except ValueError:
+        return default
+
+
+def get_identity() -> Dict[int, object]:
+    """Return PRO2 identity fields.
+
+    Serial number, meter code and firmware versions are per-device values;
+    the Inepro manual defines their registers/types but does not publish one
+    universal value. They are therefore environment-configurable and default
+    to zero rather than pretending to be a real meter identity.
+    """
+    serial = max(0, min(_env_int("PRO2_SERIAL", 0), 0xFFFFFFFF))
+    return {
+        0x4000: serial,
+        0x4002: max(0, min(_env_int("PRO2_METER_CODE", 0), 0xFFFF)),
+        0x4005: _env_float("PRO2_PROTOCOL_VERSION", 0.0),
+        0x4007: _env_float("PRO2_SOFTWARE_VERSION", 0.0),
+        0x4009: _env_float("PRO2_HARDWARE_VERSION", 0.0),
+        0x400B: max(0, min(_env_int("PRO2_METER_AMPS", 100), 0x7FFF)),
+    }
 
 
 def supported_fc06(addr: int) -> bool:
@@ -48,12 +89,7 @@ def get_slave_id(default: int = 1) -> int:
 
 
 def reset_state() -> None:
-    """Restore emulator-only writable state to documented defaults.
-
-    This is intentionally not called by production request handling: PRO2
-    configuration writes are runtime state and should remain effective until
-    the process is restarted. Tests use it to keep cases independent.
-    """
+    """Restore emulator-only writable state to documented defaults."""
     with _lock:
         _config.clear()
         _config.update(_DEFAULT_CONFIG)
@@ -81,7 +117,6 @@ def write_fc06(addr: int, value: int) -> None:
 def write_fc10(addr: int, words: Tuple[int, int]) -> None:
     if not supported_fc10(addr, 2):
         raise KeyError(addr)
-    import struct
     raw = struct.pack(">HH", words[0] & 0xFFFF, words[1] & 0xFFFF)
     value = struct.unpack(">f", raw)[0]
     if addr == 0x400D and value not in _S0_RATES:
