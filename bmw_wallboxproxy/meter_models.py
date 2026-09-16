@@ -126,7 +126,7 @@ def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
 
 def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     """Build the documented non-PRO380 PRO2-Mod register map."""
-    enc = _float_encoder("abcd")
+    enc = _float_encoder(word_order)
     regs: Dict[int, int] = {}
     identity = get_identity()
 
@@ -152,8 +152,8 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
         (0x4010, int(values.get("lcd_cycle", 10))),
         (0x4011, int(values.get("parity", 1))),
         (0x4012, direction_word),
-        (0x4013, 0x2020),  # L2 direction: two spaces on a single-phase meter
-        (0x4014, 0x2020),  # L3 direction: two spaces on a single-phase meter
+        (0x4013, 0x2020),
+        (0x4014, 0x2020),
         (0x4015, 0),
         (0x4016, int(values.get("power_down_counter", 0))),
         (0x4017, quadrant),
