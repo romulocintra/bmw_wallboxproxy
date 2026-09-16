@@ -47,15 +47,18 @@ def test_register_map_preserves_pro380_float_units_and_power_offset(monkeypatch)
     assert math.isclose(_f32(regs, 0x5014), 3.233333333333333, rel_tol=1e-6)
 
 
-def test_register_map_pro2_forces_single_phase_and_excludes_pro380_only(monkeypatch):
+def test_register_map_pro2_forces_single_phase_and_uses_l1_values(monkeypatch):
     _set_values(monkeypatch, "inepro_pro2")
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     regs = register_map.get_register_map()
     assert math.isclose(_f32(regs, 0x5000), 230.0, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x500A), 16.21, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x500C), 16.21, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x5012), 3.7285, rel_tol=1e-6)
-    for addr in (0x5004, 0x5006, 0x500E, 0x5010, 0x5016, 0x5018):
-        assert addr not in regs
+    assert math.isclose(_f32(regs, 0x5004), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x5006), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x500E), 0.0, abs_tol=1e-9)
+    assert math.isclose(_f32(regs, 0x5010), 0.0, abs_tol=1e-9)
 
 
 def test_legacy_alias_mode_is_not_applied_to_janitza(monkeypatch):

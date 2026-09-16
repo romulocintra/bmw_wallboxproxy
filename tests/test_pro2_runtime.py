@@ -43,7 +43,6 @@ def _f32(regs, addr):
 
 def test_pro2_fc06_write_echoes_and_changes_readback(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
     request = _rtu(bytes.fromhex("01 06 40 10 00 19"))
     response = dr_client.handle_rtu_request(request)
     assert response == request
@@ -52,7 +51,6 @@ def test_pro2_fc06_write_echoes_and_changes_readback(monkeypatch):
 
 def test_pro2_fc06_invalid_address_returns_exception_02(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
     request = _rtu(bytes.fromhex("01 06 50 04 00 00"))
     response = dr_client.handle_rtu_request(request)
     assert response[:3] == bytes.fromhex("01 86 02")
@@ -61,7 +59,6 @@ def test_pro2_fc06_invalid_address_returns_exception_02(monkeypatch):
 
 def test_pro2_fc16_float_write_changes_readback(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
     request = _rtu(bytes.fromhex("01 10 40 0D 00 02 04 41 20 00 00"))
     response = dr_client.handle_rtu_request(request)
     assert response == _rtu(bytes.fromhex("01 10 40 0D 00 02"))
@@ -70,19 +67,18 @@ def test_pro2_fc16_float_write_changes_readback(monkeypatch):
 
 def test_pro2_fc16_invalid_address_returns_exception_02(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
     request = _rtu(bytes.fromhex("01 10 50 04 00 02 04 00 00 00 00"))
     response = dr_client.handle_rtu_request(request)
     assert response[:3] == bytes.fromhex("01 90 02")
     assert response[-2:] == struct.pack("<H", modbus_crc(response[:-2]))
 
 
-def test_pro2_invalid_read_returns_exception_02(monkeypatch):
+def test_pro2_documented_l2_read_returns_zero(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
     request = _rtu(bytes.fromhex("01 03 50 04 00 02"))
     response = dr_client.handle_rtu_request(request)
-    assert response[:3] == bytes.fromhex("01 83 02")
+    assert response[:3] == bytes.fromhex("01 03 04")
+    assert response[3:7] == bytes(4)
     assert response[-2:] == struct.pack("<H", modbus_crc(response[:-2]))
 
 
@@ -90,7 +86,6 @@ def test_pro2_modbus_id_write_changes_active_slave(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
     write_fc06(0x4003, 10)
     assert get_slave_id() == 10
-
     request = _rtu(bytes.fromhex("0A 03 50 0C 00 02"))
     response = dr_client.handle_rtu_request(request)
     assert response is not None
@@ -99,8 +94,6 @@ def test_pro2_modbus_id_write_changes_active_slave(monkeypatch):
 
 def test_pro2_fc16_bad_float_request_returns_exception_03(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
-    # 400D is a two-word FLOAT32 register; quantity=1 is not a valid write.
     request = _rtu(bytes.fromhex("01 10 40 0D 00 01 02 00 00"))
     response = dr_client.handle_rtu_request(request)
     assert response[:3] == bytes.fromhex("01 90 03")
@@ -108,10 +101,9 @@ def test_pro2_fc16_bad_float_request_returns_exception_03(monkeypatch):
 
 def test_pro2_request_is_visible_in_modbus_activity(monkeypatch):
     monkeypatch.setattr(config, "get_meter_model", lambda: "inepro_pro2")
-
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     request = _rtu(bytes.fromhex("01 03 50 0C 00 02"))
     response = dr_client.handle_rtu_request(request)
-
     assert response[:4] == bytes.fromhex("01 03 04 40")
     with stats_lock:
         entries = list(modbus_log)

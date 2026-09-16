@@ -12,7 +12,7 @@ _DEFAULT_CONFIG = {
     0x4004: 9600,
     0x400C: 5,
     0x400D: 1000.0,
-    0x400F: 3,
+    0x400F: 1,
     0x4010: 10,
     0x4011: 1,
     0x4016: 0,
@@ -27,6 +27,7 @@ _day_baseline_import = None
 _FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x401F, 0x6048}
 _FC10_FLOAT_REGS = {0x400D, 0x6049}
 _S0_RATES = (10000.0, 2000.0, 1000.0, 100.0, 10.0, 1.0, 0.1, 0.01)
+_PRO2_COMBINATION_CODES = (1, 4, 5, 6, 9, 10)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -119,7 +120,7 @@ def write_fc06(addr: int, value: int) -> None:
         raise ValueError("Modbus ID must be 1..247")
     if addr == 0x4004 and value not in (1200, 2400, 4800, 9600):
         raise ValueError("PRO2 baud must be 1200, 2400, 4800 or 9600")
-    if addr == 0x400F and value not in (1, 2, 3, 4, 5):
+    if addr == 0x400F and value not in _PRO2_COMBINATION_CODES:
         raise ValueError("invalid PRO2 combination code")
     if addr == 0x4010 and not 1 <= value <= 30:
         raise ValueError("LCD cycle time must be 1..30")
