@@ -44,22 +44,25 @@ def _value(values: dict, name: str, default: float = 0.0) -> float:
 
 
 def _inepro_energy_values(values: dict) -> dict[int, float]:
-    """Build the non-starred PRO2 energy registers from forward/reverse data."""
+    """Build the PRO2 energy registers using the configured combination code."""
     forward = _value(values, "e_import")
     reverse = _value(values, "e_export")
-    combo = int(values.get("combination_code", 3))
-    if combo == 1:
-        total = forward
-    elif combo == 4:
-        total = reverse
-    elif combo == 5:
-        total = forward + reverse
-    elif combo == 6:
-        total = reverse - forward
-    elif combo in (9, 10):
-        total = forward - reverse
+    if "e_total" in values:
+        total = _value(values, "e_total")
     else:
-        total = forward
+        combo = int(values.get("combination_code", 1))
+        if combo == 1:
+            total = forward
+        elif combo == 4:
+            total = reverse
+        elif combo == 5:
+            total = forward + reverse
+        elif combo == 6:
+            total = reverse - forward
+        elif combo in (9, 10):
+            total = forward - reverse
+        else:
+            total = forward
     return {
         0x6000: total,
         0x6002: _value(values, "e_t1_total"),
@@ -83,14 +86,16 @@ def _inepro_energy_values(values: dict) -> dict[int, float]:
 
 
 def _inepro_pro2_measurement_values(values: dict) -> dict[int, float]:
+    u1 = _value(values, "u1")
+    i1 = _value(values, "i1")
     return {
-        0x5000: _value(values, "voltage_avg"),
-        0x5002: _value(values, "u1"),
+        0x5000: _value(values, "voltage_avg", u1),
+        0x5002: u1,
         0x5004: _value(values, "u2"),
         0x5006: _value(values, "u3"),
         0x5008: _value(values, "freq"),
-        0x500A: _value(values, "current_total"),
-        0x500C: _value(values, "i1"),
+        0x500A: _value(values, "current_total", i1),
+        0x500C: i1,
         0x500E: _value(values, "i2"),
         0x5010: _value(values, "i3"),
         0x5012: _value(values, "p_total"),
@@ -129,7 +134,7 @@ def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
 
 
 def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
-    """Build the documented non-PRO380 PRO2-Mod register map."""
+    """Build the documented PRO2-Mod register map."""
     enc = _float_encoder(word_order)
     regs: Dict[int, int] = {}
     identity = get_identity()
@@ -143,7 +148,7 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     for addr in (0x4005, 0x4007, 0x4009):
         _put_float(regs, enc, addr, float(identity[addr]))
 
-    combo = int(values.get("combination_code", 3))
+    combo = int(values.get("combination_code", 1))
     tariff = int(values.get("tariff", 1))
     current = _value(values, "p_total")
     reverse = current < 0
@@ -174,7 +179,7 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     ):
         _put_u16(regs, addr, value)
 
-    _put_float(regs, enc, 0x400D, _value(values, "s0_rate", 10000.0))
+    _put_float(regs, enc, 0x400D, _value(values, "s0_rate", 1000.0))
 
     for addr, value in _inepro_pro2_measurement_values(values).items():
         _put_float(regs, enc, addr, value)
