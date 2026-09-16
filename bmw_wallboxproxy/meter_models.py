@@ -84,14 +84,12 @@ def _inepro_energy_values(values: dict) -> dict[int, float]:
 
 def _inepro_pro2_measurement_values(values: dict) -> dict[int, float]:
     return {
-        # PRO2/PRO380 voltage block: L1/L2/L3 at 0x5000/0x5002/0x5004.
         0x5000: _value(values, "voltage_avg"),
         0x5002: _value(values, "u1"),
         0x5004: _value(values, "u2"),
         0x5006: _value(values, "u3"),
         0x5008: _value(values, "freq"),
         0x500A: _value(values, "current_total"),
-        # PRO2/PRO380 current block: L1/L2/L3 at 0x500C/0x500E/0x5010.
         0x500C: _value(values, "i1"),
         0x500E: _value(values, "i2"),
         0x5010: _value(values, "i3"),
@@ -141,6 +139,7 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     _put_u16(regs, 0x4001, serial & 0xFFFF)
     _put_u16(regs, 0x4002, int(identity[0x4002]))
     _put_u16(regs, 0x400B, int(identity[0x400B]))
+    _put_u16(regs, 0x400C, int(identity[0x400C]))
     for addr in (0x4005, 0x4007, 0x4009):
         _put_float(regs, enc, addr, float(identity[addr]))
 
@@ -170,7 +169,7 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
         (0x401C, int(values.get("checksum_lo", 0))),
         (0x401D, int(values.get("active_status_hi", 0))),
         (0x401E, int(values.get("active_status_lo", 0))),
-        (0x401F, int(values.get("ct_mode", 0))),
+        (0x401F, int(values.get("ct_mode", int(identity[0x401F])))),
         (0x6048, tariff),
     ):
         _put_u16(regs, addr, value)
