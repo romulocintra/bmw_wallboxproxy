@@ -31,6 +31,19 @@ def _record_decoded(slave_id, function_code, start_addr, quantity, transport):
     )
 
 
+def _pro2_effective_quantity(start_addr: int, quantity: int) -> int:
+    """Expand Delta's two-register phase reads to the complete phase block.
+
+    Some Delta Electronics BMW wallboxes request only the first FLOAT32 at
+    0x5000 or 0x500C but expect the Inepro-compatible response to contain the
+    complete three-phase block.  Keep normal Modbus reads unchanged and apply
+    the compatibility expansion only to those two phase-block starts.
+    """
+    if quantity == 2 and start_addr in (0x5000, 0x500C):
+        return 6
+    return quantity
+
+
 def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
     if not _is_pro2():
         return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
@@ -58,12 +71,16 @@ def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
             return dr_client.build_exception_payload(
                 slave_id, function_code, 3, f"illegal quantity {quantity}"
             )
-        if any(addr not in reg_map for addr in range(start_addr, start_addr + quantity)):
+
+        response_quantity = _pro2_effective_quantity(start_addr, quantity)
+        if any(addr not in reg_map for addr in range(start_addr, start_addr + response_quantity)):
             return dr_client.build_exception_payload(
                 slave_id, function_code, 2, "PRO2 illegal data address"
             )
         try:
-            return dr_client.build_read_payload(slave_id, function_code, start_addr, quantity)
+            return dr_client.build_read_payload(
+                slave_id, function_code, start_addr, response_quantity
+            )
         except Exception as exc:
             return dr_client.build_exception_payload(
                 slave_id, function_code, 4, f"register build failed: {exc}"
