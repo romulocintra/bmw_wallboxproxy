@@ -7,26 +7,6 @@ from typing import Dict, Tuple
 
 _lock = Lock()
 
-_DEFAULT_CONFIG = {
-    0x4003: 1,
-    0x4004: 9600,
-    0x400C: 5,
-    0x400D: 1000.0,
-    0x400F: 1,
-    0x4010: 10,
-    0x4011: 1,
-    0x4016: 0,
-    0x401F: 0,
-    0x6048: 1,
-    0x6049: 0.0,
-}
-
-_config = dict(_DEFAULT_CONFIG)
-_day_baseline_import = None
-
-_FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x401F, 0x6048}
-_FC10_FLOAT_REGS = {0x400D, 0x6049}
-_S0_RATES = (10000.0, 2000.0, 1000.0, 100.0, 10.0, 1.0, 0.1, 0.01)
 _PRO2_COMBINATION_CODES = (1, 4, 5, 6, 9, 10)
 
 
@@ -48,6 +28,48 @@ def _env_float(name: str, default: float) -> float:
         return float(raw.strip())
     except ValueError:
         return default
+
+
+def _custom_combination_code() -> int | None:
+    """Return an optional raw 16-bit PRO2 combination code override.
+
+    Accepts decimal (for example ``3``) or hexadecimal (for example
+    ``0x0003``). An empty/unset value keeps the documented PRO2 default.
+    """
+    raw = os.environ.get("CUSTOM_COMBINATION_CODE", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw, 0)
+    except ValueError:
+        return None
+    return value if 0 <= value <= 0xFFFF else None
+
+
+def _default_config() -> dict[int, object]:
+    custom_combination = _custom_combination_code()
+    return {
+        0x4003: 1,
+        0x4004: 9600,
+        0x400C: 5,
+        0x400D: 1000.0,
+        0x400F: 1 if custom_combination is None else custom_combination,
+        0x4010: 10,
+        0x4011: 1,
+        0x4016: 0,
+        0x401F: 0,
+        0x6048: 1,
+        0x6049: 0.0,
+    }
+
+
+_DEFAULT_CONFIG = _default_config()
+_config = dict(_DEFAULT_CONFIG)
+_day_baseline_import = None
+
+_FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x401F, 0x6048}
+_FC10_FLOAT_REGS = {0x400D, 0x6049}
+_S0_RATES = (10000.0, 2000.0, 1000.0, 100.0, 10.0, 1.0, 0.1, 0.01)
 
 
 def get_identity() -> Dict[int, object]:
@@ -109,7 +131,7 @@ def reset_state() -> None:
     global _day_baseline_import
     with _lock:
         _config.clear()
-        _config.update(_DEFAULT_CONFIG)
+        _config.update(_default_config())
         _day_baseline_import = None
 
 
@@ -120,8 +142,13 @@ def write_fc06(addr: int, value: int) -> None:
         raise ValueError("Modbus ID must be 1..247")
     if addr == 0x4004 and value not in (1200, 2400, 4800, 9600):
         raise ValueError("PRO2 baud must be 1200, 2400, 4800 or 9600")
-    if addr == 0x400F and value not in _PRO2_COMBINATION_CODES:
-        raise ValueError("invalid PRO2 combination code")
+    if addr == 0x400F:
+        custom_combination = _custom_combination_code()
+        if custom_combination is not None:
+            if value != custom_combination:
+                raise ValueError("PRO2 custom combination code is fixed")
+        elif value not in _PRO2_COMBINATION_CODES:
+            raise ValueError("invalid PRO2 combination code")
     if addr == 0x4010 and not 1 <= value <= 30:
         raise ValueError("LCD cycle time must be 1..30")
     if addr == 0x4011 and value not in (1, 2, 3):
