@@ -1,0 +1,81 @@
+name: BMW Wallbox Proxy (Multi-Meter)
+version: "0.2.35"
+slug: bmw_wallboxproxy_multimeter
+description: Emulate Inepro PRO380/PRO2 or Janitza B21/B23 Modbus meters for BMW wallboxes.
+arch:
+  - aarch64
+  - amd64
+  - armv7
+  - armhf
+  - i386
+init: false
+startup: application
+boot: auto
+stage: experimental
+ingress: true
+ingress_port: 8099
+homeassistant_api: true
+panel_title: BMW Wallbox Multi-Meter
+panel_icon: mdi:ev-station
+ports:
+  502/tcp: 502
+ports_description:
+  502/tcp: BMW wallbox Modbus TCP listener
+options:
+  ha_token: ""
+  meter_model: inepro_pro380
+  test_mode: false
+  test_current_a: ""
+  test_voltage_v: 230.0
+  test_frequency_hz: 50.0
+  test_power_factor: 1.0
+  test_raw_response_enabled: false
+  test_raw_response: ""
+  transport_mode: rtu_over_tcp
+  float_word_order: cdab
+  inepro_500c_encoding: int32_ma_cdab
+  register_alias_mode: exact
+  u1_entity: ""
+  u2_entity: ""
+  u3_entity: ""
+  i1_entity: ""
+  i2_entity: ""
+  i3_entity: ""
+  p_total_entity: ""
+  freq_entity: ""
+  p1_entity: ""
+  p2_entity: ""
+  p3_entity: ""
+  e_import_total_entity: ""
+  e_export_total_entity: ""
+  power_offset_entity: ""
+schema:
+  ha_token: "password?"
+  meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23|janitza_b21)"
+  test_mode: "bool"
+  test_current_a: "str?"
+  test_voltage_v: "float"
+  test_frequency_hz: "float"
+  test_power_factor: "float"
+  test_raw_response_enabled: "bool"
+  test_raw_response: "str?"
+  transport_mode: "list(rtu_over_tcp|modbus_tcp)"
+  float_word_order: "list(abcd|cdab)"
+  inepro_500c_encoding: "list(int32_ma_cdab|int32_ma_abcd|float32_cdab|float32_abcd)"
+  register_alias_mode: "list(exact|alias_minus_1|alias_plus_1|alias_both)"
+  u1_entity: "str?"
+  u2_entity: "str?"
+  u3_entity: "str?"
+  i1_entity: "str?"
+  i2_entity: "str?"
+  i3_entity: "str?"
+  p_total_entity: "str?"
+  freq_entity: "str?"
+  p1_entity: "str?"
+  p2_entity: "str?"
+  p3_entity: "str?"
+  e_import_total_entity: "str?"
+  e_export_total_entity: "str?"
+  power_offset_entity: "str?"
+watchdog: http://[HOST]:[PORT:8099]/api/state
+timeout: 20
