@@ -29,6 +29,7 @@ def test_test_mode_is_three_phase_coherent_source_data():
 
 def test_test_mode_applies_to_all_meter_models(monkeypatch):
     monkeypatch.setattr(register_map, "get_test_mode", lambda: True)
+    monkeypatch.setattr(register_map.config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     for model in ("inepro_pro380", "inepro_pro2", "janitza_b23", "janitza_b21"):
         monkeypatch.setattr(register_map, "get_meter_model", lambda model=model: model)
         reset_test_sequence(); regs = register_map.get_register_map()
@@ -42,18 +43,20 @@ def test_test_mode_applies_to_all_meter_models(monkeypatch):
             assert _f32(regs, 0x500C) == 0.0
 
 
-def test_single_phase_test_profile_excludes_pro380_only_fields(monkeypatch):
+def test_single_phase_test_profile_includes_documented_zero_phase_fields(monkeypatch):
     monkeypatch.setattr(register_map, "get_test_mode", lambda: True)
     monkeypatch.setattr(register_map, "get_meter_model", lambda: "inepro_pro2")
+    monkeypatch.setattr(register_map.config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     reset_test_sequence(); regs = register_map.get_register_map()
-    assert 0x5004 not in regs
-    assert 0x5006 not in regs
-    assert 0x500E not in regs
-    assert 0x5010 not in regs
+    assert _f32(regs, 0x5004) == 0.0
+    assert _f32(regs, 0x5006) == 0.0
+    assert _f32(regs, 0x500E) == 0.0
+    assert _f32(regs, 0x5010) == 0.0
 
 
 def test_single_phase_test_profiles_use_l1_power_as_total(monkeypatch):
     monkeypatch.setattr(register_map, "get_test_mode", lambda: True)
+    monkeypatch.setattr(register_map.config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     for model in ("inepro_pro2", "janitza_b21"):
         monkeypatch.setattr(register_map, "get_meter_model", lambda model=model: model)
         reset_test_sequence(); register_map.get_register_map(); regs = register_map.get_register_map()
