@@ -15,10 +15,11 @@ def modbus_crc(data: bytes) -> int:
 
 
 def _raw_test_response(data: bytes) -> bytes | None:
-    """Return the configured raw RTU response body when this is a response."""
+    """Return the configured raw RTU response body when this is a test response."""
+    test_mode = os.environ.get("TEST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
     enabled = os.environ.get("TEST_RAW_RESPONSE_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     raw = os.environ.get("TEST_RAW_RESPONSE", "").strip()
-    if not enabled or not raw:
+    if not test_mode or not enabled or not raw:
         return None
 
     # A normal read response is [slave, function, byte_count, data...].
@@ -30,7 +31,7 @@ def _raw_test_response(data: bytes) -> bytes | None:
     try:
         body = bytes.fromhex(raw)
     except ValueError as exc:
-        raise ValueError("TEST_RAW_RESPONSE must contain space-separated hexadecimal bytes") from exc
+        raise ValueError("TEST_RAW_RESPONSE must contain hexadecimal bytes") from exc
 
     if len(body) < 3 or body[1] not in (3, 4):
         raise ValueError("TEST_RAW_RESPONSE must start with slave id and function code 03 or 04")
