@@ -1,3 +1,4 @@
+import os
 import struct
 
 
@@ -13,7 +14,39 @@ def modbus_crc(data: bytes) -> int:
     return crc & 0xFFFF
 
 
+def _raw_test_response(data: bytes) -> bytes | None:
+    """Return the configured raw RTU response body when this is a test response."""
+    test_mode = os.environ.get("TEST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
+    enabled = os.environ.get("TEST_RAW_RESPONSE_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+    raw = os.environ.get("TEST_RAW_RESPONSE", "").strip()
+    if not test_mode or not enabled or not raw:
+        return None
+
+    # A normal read response is [slave, function, byte_count, data...].
+    # Requests do not match this shape, so request CRC generation remains safe
+    # even when raw-response testing is enabled in the add-on process.
+    if len(data) < 3 or data[1] not in (3, 4) or data[2] != len(data) - 3:
+        return None
+
+    try:
+        body = bytes.fromhex(raw)
+    except ValueError as exc:
+        raise ValueError("TEST_RAW_RESPONSE must contain hexadecimal bytes") from exc
+
+    if len(body) < 3 or body[1] not in (3, 4):
+        raise ValueError("TEST_RAW_RESPONSE must start with slave id and function code 03 or 04")
+    if body[2] != len(body) - 3:
+        raise ValueError("TEST_RAW_RESPONSE byte count does not match payload length")
+    if body[2] % 2:
+        raise ValueError("TEST_RAW_RESPONSE byte count must be even for register reads")
+
+    return body
+
+
 def append_crc(data: bytes) -> bytes:
+    raw_body = _raw_test_response(data)
+    if raw_body is not None:
+        data = raw_body
     return data + struct.pack("<H", modbus_crc(data))
 
 

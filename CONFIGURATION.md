@@ -8,7 +8,38 @@ The Home Assistant add-on configuration is the source of truth. After changing o
 |---|---|---|---|
 | `meter_model` | `inepro_pro380`, `inepro_pro2`, `janitza_b23`, `janitza_b21` | `inepro_pro380` | Selects the virtual meter register map and encoding. Must match the meter selected in the BMW Installation App. |
 
-`inepro_pro380` and `inepro_pro2` use IEEE-754 FLOAT32 values. `janitza_b23` uses the documented B23 scaled representation. The profile is independent from the transport settings below.
+`inepro_pro380` uses IEEE-754 FLOAT32 values. `inepro_pro2` uses FLOAT32 for the normal measurement map, with an independently configurable experimental encoding for the three current registers. `janitza_b23` and `janitza_b21` use their documented B-series scaled representations.
+
+## Test mode
+
+| Option | Type | Default | Purpose |
+|---|---|---|---|
+| `test_mode` | bool | `false` | Enables deterministic compatibility-testing values. |
+| `test_current_a` | string containing a float or empty | empty | Fixed test current. Leave empty to keep the built-in test-current sequence. |
+| `test_voltage_v` | float | `230.0` | Test voltage. |
+| `test_frequency_hz` | float | `50.0` | Test grid frequency. |
+| `test_power_factor` | float | `1.0` | Test power factor, limited to 1.0. |
+| `test_raw_response_enabled` | bool | `false` | Replaces generated RTU read responses with the configured raw response while test mode is being used. |
+| `test_raw_response` | string | empty | Raw RTU response body in hexadecimal, **without the two-byte CRC**. Example: `01 03 04 00 00 4B 78`. |
+
+The raw response override is intended for byte-level BMW Wallbox compatibility experiments. It bypasses the normal register encoding for RTU read responses and recalculates the Modbus CRC automatically. The configured response must be a valid read response (`03` or `04`) and its byte count must match the supplied data. It is ignored unless both `test_mode` and `test_raw_response_enabled` are true.
+
+For example, to test the two common byte/word layouts for a 19.32 A Int32 value:
+
+```yaml
+test_mode: true
+test_raw_response_enabled: true
+# 00 00 4B 78 data bytes
+test_raw_response: "01 03 04 00 00 4B 78"
+```
+
+or:
+
+```yaml
+test_raw_response: "01 03 04 4B 78 00 00"
+```
+
+The proxy appends the correct RTU CRC to either response. This is especially useful for testing a Wallbox without changing `inepro_500c_encoding`, `float_word_order` or register aliases.
 
 ## Modbus transport
 
@@ -16,8 +47,8 @@ The Home Assistant add-on configuration is the source of truth. After changing o
 |---|---|---|---|
 | `transport_mode` | `rtu_over_tcp`, `modbus_tcp` | `rtu_over_tcp` | Selects the framing expected by the proxy. Use `rtu_over_tcp` with a transparent RS485/TCP bridge carrying raw RTU frames. |
 | `float_word_order` | `abcd`, `cdab` | `cdab` in the add-on | FLOAT32 word order used by Inepro profiles. CDAB is the add-on default for Delta Electronics compatibility. |
-| `inepro_500c_encoding` | `int32_ma_cdab`, `float32_cdab`, `float32_abcd` | `int32_ma_cdab` | Experimental encoding for the PRO2 current registers `0x500C`, `0x500E` and `0x5010`. |
-| `register_alias_mode` | `exact`, `alias_minus_1`, `alias_plus_1`, `alias_both` | `exact` | Legacy register-address compatibility mode for Inepro profiles. Janitza B23 does not use Inepro aliases. |
+| `inepro_500c_encoding` | `int32_ma_cdab`, `int32_ma_abcd`, `float32_cdab`, `float32_abcd` | `int32_ma_cdab` | Experimental encoding for the PRO2 current registers `0x500C`, `0x500E` and `0x5010`. |
+| `register_alias_mode` | `exact`, `alias_minus_1`, `alias_plus_1`, `alias_both` | `exact` | Legacy register-address compatibility mode for Inepro profiles. Janitza B23/B21 do not use Inepro aliases. |
 
 ### Delta PRO2 current encoding
 
@@ -26,6 +57,7 @@ For `meter_model: inepro_pro2`, `inepro_500c_encoding` is intended to make hardw
 | Value | Encoding | Example for 19.5 A |
 |---|---|---|
 | `int32_ma_cdab` | Signed Int32 milliamps, then CDAB word swap | `19.5 A → 19500 → 4C 2C 00 00` |
+| `int32_ma_abcd` | Signed Int32 milliamps, standard ABCD | `19.5 A → 19500 → 00 00 4C 2C` |
 | `float32_cdab` | IEEE-754 FLOAT32, CDAB word swap | `19.5 A → 00 00 41 9C` |
 | `float32_abcd` | IEEE-754 FLOAT32, ABCD | `19.5 A → 41 9C A3 D7` |
 
@@ -71,7 +103,7 @@ All entity options are strings and may be left empty. Empty or unavailable entit
 
 | Option | Data | Used by | Purpose |
 |---|---|---|---|
-| `u1_entity` | Voltage L1 | PRO380, PRO2, B23 | L1 voltage |
+| `u1_entity` | Voltage L1 | PRO380, PRO2, B23, B21 | L1 voltage |
 | `u2_entity` | Voltage L2 | PRO380, B23 | L2 voltage |
 | `u3_entity` | Voltage L3 | PRO380, B23 | L3 voltage |
 | `i1_entity` | Current L1 | all profiles | L1 current; minimum useful input for PRO2 current/load-management testing |
@@ -106,6 +138,13 @@ L2/L3 entities are not required for PRO2. They are deliberately not treated as r
 ```yaml
 ha_token: ""
 meter_model: inepro_pro2
+test_mode: true
+test_current_a: 19.32
+test_voltage_v: 230.0
+test_frequency_hz: 50.0
+test_power_factor: 1.0
+test_raw_response_enabled: false
+test_raw_response: ""
 transport_mode: rtu_over_tcp
 float_word_order: cdab
 inepro_500c_encoding: int32_ma_cdab
@@ -152,5 +191,7 @@ Open the add-on Web UI and go to **Meter Profile / Settings**. It shows:
 - configured entity values
 - transport and Home Assistant authentication status
 - current session/request information
+
+For PRO2, the UI reports the configured current encoding and FLOAT32 word order separately. This is intentional: `inepro_500c_encoding` controls the PRO2 current registers, while `float_word_order` remains independent for the normal FLOAT32 measurement registers.
 
 If the displayed meter profile does not match the Home Assistant add-on configuration, restart the add-on and check the startup log for `Meter model: ...`. The add-on startup explicitly imports `meter_model` from the Home Assistant configuration.

@@ -1,3 +1,13 @@
+## 0.2.34
+
+- Add `test_raw_response_enabled` and `test_raw_response` for exact RTU read-response testing without changing the normal register map.
+- Recalculate and append the Modbus CRC automatically.
+- Validate raw response hex, function code, byte count and even register payload size.
+- Add regression coverage for enabled/disabled behaviour, CRC generation, request isolation and invalid payloads.
+- Align the web UI PRO2 profile with the configured current encoding and independent FLOAT32 word order.
+- Add the Janitza B21 profile to the web UI.
+- Align configuration documentation with all four PRO2 current encoding modes and the raw-response test feature.
+
 ## 0.2.33
 
 - Add custom deterministic test values to the Home Assistant add-on configuration.

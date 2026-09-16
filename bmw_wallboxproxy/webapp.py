@@ -52,10 +52,12 @@ METER_PROFILES = {
     "inepro_pro2": {
         "label": "Inepro PRO2-Mod",
         "phases": "1-phase",
-        "encoding": "IEEE-754 FLOAT32",
-        "byte_order": "ABCD by default",
+        "encoding": "Configurable current encoding; FLOAT32 elsewhere",
+        "byte_order": "Current: configured 0x500C encoding; other FLOAT32 registers use float_word_order",
         "serial": "9600 8E1, Modbus ID 1",
         "current_register": "0x500C",
+        "current_encoding": config.MODBUS_INEPRO_500C_ENCODING,
+        "float_word_order": config.MODBUS_FLOAT_WORD_ORDER,
         "required": ["i1"],
         "recommended": ["u1", "p_total", "freq", "p1"],
         "optional": ["e_import_total", "e_export_total", "power_offset"],
@@ -72,6 +74,18 @@ METER_PROFILES = {
         "recommended": ["p1", "p2", "p3", "e_import_total", "e_export_total"],
         "optional": ["power_offset"],
         "notes": "Use when the BMW Installation App is configured for Janitza B23. Do not apply Inepro FLOAT32 assumptions to this profile.",
+    },
+    "janitza_b21": {
+        "label": "Janitza B21",
+        "phases": "1-phase",
+        "encoding": "32-bit scaled integers",
+        "byte_order": "Register-specific B21 representation",
+        "serial": "Must match the BMW Installation App",
+        "current_register": "0x5B0C",
+        "required": ["u1", "i1", "p_total", "freq"],
+        "recommended": ["e_import_total", "e_export_total"],
+        "optional": ["power_offset"],
+        "notes": "Use when the BMW Installation App is configured for Janitza B21. The B21 model exposes a single phase from the shared Janitza B-series register map.",
     },
 }
 

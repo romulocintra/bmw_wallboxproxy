@@ -20,6 +20,8 @@ export TEST_CURRENT_A="$(bashio::config 'test_current_a')"
 export TEST_VOLTAGE_V="$(bashio::config 'test_voltage_v')"
 export TEST_FREQUENCY_HZ="$(bashio::config 'test_frequency_hz')"
 export TEST_POWER_FACTOR="$(bashio::config 'test_power_factor')"
+export TEST_RAW_RESPONSE_ENABLED="$(bashio::config 'test_raw_response_enabled')"
+export TEST_RAW_RESPONSE="$(bashio::config 'test_raw_response')"
 export MODBUS_TRANSPORT_MODE="$(bashio::config 'transport_mode')"
 export MODBUS_FLOAT_WORD_ORDER="$(bashio::config 'float_word_order')"
 export MODBUS_INEPRO_500C_ENCODING="$(bashio::config 'inepro_500c_encoding')"
@@ -45,6 +47,7 @@ bashio::log.info "Runtime settings are sourced from the Home Assistant add-on co
 bashio::log.info "Meter model: ${METER_MODEL}"
 bashio::log.info "Test mode: ${TEST_MODE}"
 bashio::log.info "Custom test current: ${TEST_CURRENT_A:-sequence} A"
+bashio::log.info "Raw test response: ${TEST_RAW_RESPONSE_ENABLED}"
 bashio::log.info "Inepro 0x500C/current encoding: ${MODBUS_INEPRO_500C_ENCODING}"
 
 exec /opt/venv/bin/python /app/app.py
