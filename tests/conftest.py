@@ -17,6 +17,7 @@ def reset_environment_config(monkeypatch):
         "MODBUS_FLOAT_WORD_ORDER",
         "MODBUS_REGISTER_ALIAS_MODE",
         "POWER_OFFSET_WATTS",
+        "CUSTOM_COMBINATION_CODE",
     )
     for key in keys:
         monkeypatch.delenv(key, raising=False)
