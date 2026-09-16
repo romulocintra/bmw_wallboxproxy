@@ -8,13 +8,13 @@ This fork is intended for testing and installations where the enhanced meter-mod
 
 | Model | Installation | Encoding | Serial settings | L1 current register |
 |---|---|---|---|---|
-| `inepro_pro380` | 3-phase | IEEE-754 FLOAT32, ABCD | 9600 8E1, address 1 | `0x500C` |
-| `inepro_pro2` | **1-phase** | IEEE-754 FLOAT32, ABCD | 9600 8E1, address 1 | `0x500C` |
+| `inepro_pro380` | 3-phase | IEEE-754 FLOAT32, configurable word order | 9600 8E1, address 1 | `0x500C` |
+| `inepro_pro2` | **1-phase** | IEEE-754 FLOAT32, CDAB by default for Delta | 9600 8E1, address 1 | `0x500C` |
 | `janitza_b23` | 3-phase | 32-bit scaled integers | Must match Wallbox configuration | `0x5B0C` |
 
 The selected `meter_model` must match the meter model configured in the BMW Wallbox Installation App. `meter_model` is the virtual meter profile; it is separate from the TCP/RTU transport and compatibility settings.
 
-See [`METER_PROFILES.md`](METER_PROFILES.md) for profile-specific Home Assistant entity requirements and [`CONFIGURATION.md`](CONFIGURATION.md) for the complete add-on option reference.
+See [`CONFIGURATION.md`](CONFIGURATION.md) for the complete add-on option reference.
 
 ## Configuration
 
@@ -27,7 +27,7 @@ The Home Assistant add-on configuration is the source of truth. Change options i
 | `ha_token` | empty | Optional Home Assistant long-lived token; Supervisor mode normally uses the Supervisor token instead. |
 | `meter_model` | `inepro_pro380` | Virtual meter profile: `inepro_pro380`, `inepro_pro2`, or `janitza_b23`. |
 | `transport_mode` | `rtu_over_tcp` | Modbus framing: raw RTU carried over TCP or Modbus TCP. |
-| `float_word_order` | `abcd` | FLOAT32 word order for Inepro profiles. |
+| `float_word_order` | `cdab` | FLOAT32 word order for Inepro profiles; CDAB is the default required by Delta Electronics wallboxes. |
 | `register_alias_mode` | `exact` | Legacy register compatibility mode for Inepro profiles. |
 | `u1_entity` | empty | Home Assistant L1 voltage entity. |
 | `u2_entity` | empty | Home Assistant L2 voltage entity. |
@@ -44,14 +44,12 @@ The Home Assistant add-on configuration is the source of truth. Change options i
 | `e_export_total_entity` | empty | Home Assistant aggregate exported/reverse energy entity. |
 | `power_offset_entity` | empty | Optional Home Assistant Number helper supplying a power offset in watts. |
 
-For profile-specific requirements, use **Meter Profile / Settings** in the web UI or read [`METER_PROFILES.md`](METER_PROFILES.md).
-
 ### Single-phase PRO2 example
 
 ```yaml
 meter_model: inepro_pro2
 transport_mode: rtu_over_tcp
-float_word_order: abcd
+float_word_order: cdab
 register_alias_mode: exact
 u1_entity: sensor.inverter_grid_l1_voltage
 i1_entity: sensor.inverter_grid_l1_current
@@ -69,11 +67,35 @@ For a minimal current-only test, `i1_entity` is the important field. L2/L3 input
 
 ### Inepro PRO380
 
-The `inepro_pro380` profile follows the documented PRO380 Modbus register map, including voltage, current, active/reactive/apparent power, power factor, frequency and energy registers. Measurement values are IEEE-754 FLOAT32 using ABCD byte/word order.
+The `inepro_pro380` profile follows the documented PRO380 Modbus register map, including voltage, current, active/reactive/apparent power, power factor, frequency and energy registers. Measurement values are IEEE-754 FLOAT32 using the configured word order.
 
 ### Inepro PRO2
 
-The `inepro_pro2` profile is specifically intended for **single-phase installations**. It uses the PRO2 register map and FLOAT32 ABCD encoding. Registers that are PRO380-only L2/L3 measurements are returned as zero instead of duplicating L1 values.
+The `inepro_pro2` profile is specifically intended for **single-phase installations**. For the Delta Electronics compatibility profile, FLOAT32 measurement values use **CDAB word-swapped encoding**. The key measurement registers are:
+
+| Register | Measurement | Encoding | Response to a 2-register read |
+|---|---|---|---|
+| `0x5000` | Voltage L1 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x500C` | Current L1 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x500E` | Current L2 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x5010` | Current L3 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x5012` | Total active power | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
+
+A request such as:
+
+```text
+01 03 50 0C 00 02 15 08
+```
+
+must produce a Modbus RTU response with exactly **9 bytes**:
+
+```text
+01 03 04 XX XX XX XX CRC CRC
+```
+
+The proxy must preserve the requested register quantity. In particular, it must **not** expand a two-register read at `0x5000` or `0x500C` into a six-register three-phase response. Doing so changes the byte count to `0x0C` and can cause a Delta wallbox to reject the frame and retry the request.
+
+Registers that are PRO380-only L2/L3 measurements are still returned according to the PRO2 map rather than duplicating L1 values.
 
 ### Janitza B23
 
@@ -159,20 +181,27 @@ The proxy validates incoming RTU frames before responding:
 
 - Modbus RTU CRC is checked.
 - Requests for another slave address are ignored.
-- Responses are encoded according to the selected meter model.
-- PRO380/PRO2 values use FLOAT32 ABCD.
+- Responses preserve the requested register quantity.
+- Inepro PRO2 FLOAT32 values use CDAB word order by default for Delta compatibility.
 - Janitza B23 values use the documented scaled integer representation.
 
-Example PRO380/PRO2 request for L1 current:
+Example Delta PRO2 request for L1 current:
 
 ```text
-01 03 50 0C 00 02 15 08
+TCP RX  01 03 50 0C 00 02 15 08
+TCP TX  01 03 04 XX XX XX XX CRC CRC
 ```
 
 Example Janitza B23 request for L1 current:
 
 ```text
 01 03 5B 0C 00 02 17 2C
+```
+
+Example Janitza B23 response shape:
+
+```text
+TCP TX  01 03 04 XX XX XX XX CRC CRC
 ```
 
 ## Web UI
@@ -183,7 +212,7 @@ The meter profile shown by the UI is read from the same runtime `METER_MODEL` va
 
 ## Tests and CI
 
-The repository contains tests for meter-model mapping, Modbus encoding/protocol behaviour, power offsets, profile dispatch, configuration wiring, and web profile rendering/API output.
+The repository contains tests for meter-model mapping, Modbus encoding/protocol behaviour, power offsets, profile dispatch, configuration wiring, and web profile rendering/API output. Delta PRO2 regression tests verify that the key FLOAT32 registers return exactly two registers, `Byte Count = 0x04`, CDAB payloads, and a 9-byte RTU frame with a valid CRC.
 
 GitHub Actions runs `pytest -q` automatically on every pull request and on pushes to `main`.
 
@@ -210,12 +239,13 @@ Check, in order:
 5. RS485 polarity is correct: pin 8 = D+, pin 9 = D-.
 6. The Wallbox is actually sending Modbus requests.
 7. The proxy returns a response with a valid CRC.
-8. PRO380/PRO2 responses contain FLOAT32 ABCD data.
-9. Janitza responses use B23 scaled integers rather than FLOAT32.
-10. Restart the Wallbox and capture the initial request sequence; look for identification/validation reads before relying only on the recurring measurement poll.
-11. The correct add-on is running and listening on host port `502`.
+8. Delta PRO2 phase reads return `Byte Count = 0x04` for the requested two registers.
+9. Delta PRO2 FLOAT32 responses use CDAB word order.
+10. Janitza responses use B23 scaled integers rather than FLOAT32.
+11. Restart the Wallbox and capture the initial request sequence; look for identification/validation reads before relying only on the recurring measurement poll.
+12. The correct add-on is running and listening on host port `502`.
 
-A healthy PRO380/PRO2 exchange should look like:
+A healthy Delta PRO2 exchange should look like:
 
 ```text
 TCP RX  01 03 50 0C 00 02 15 08

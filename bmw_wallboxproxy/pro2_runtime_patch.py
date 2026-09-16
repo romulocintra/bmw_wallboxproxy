@@ -34,25 +34,12 @@ def _record_decoded(slave_id, function_code, start_addr, quantity, transport):
     )
 
 
-def _inepro_effective_quantity(start_addr: int, quantity: int) -> int:
-    """Expand Delta's short phase reads to complete three-phase FLOAT32 blocks."""
-    if quantity == 2 and start_addr in (0x5000, 0x500C):
-        return 6
-    return quantity
-
-
 def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
     if not _is_inepro():
         return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
 
-    # PRO380 keeps the normal dispatcher semantics; only the Delta phase-block
-    # compatibility expansion is applied here.
+    # PRO380 keeps the normal dispatcher semantics.
     if not _is_pro2():
-        response_quantity = _inepro_effective_quantity(start_addr, quantity)
-        if response_quantity != quantity and function_code in (3, 4):
-            return _ORIGINAL_DECODED(
-                slave_id, function_code, start_addr, response_quantity, transport
-            )
         return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
 
     _record_decoded(slave_id, function_code, start_addr, quantity, transport)
@@ -79,14 +66,17 @@ def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
                 slave_id, function_code, 3, f"illegal quantity {quantity}"
             )
 
-        response_quantity = _inepro_effective_quantity(start_addr, quantity)
-        if any(addr not in reg_map for addr in range(start_addr, start_addr + response_quantity)):
+        # Delta requests for phase measurements ask for exactly two registers
+        # (one FLOAT32). Respond with exactly those two registers; do not expand
+        # the request into a three-phase block, which produces an invalid byte
+        # count and causes the wallbox to retry the poll indefinitely.
+        if any(addr not in reg_map for addr in range(start_addr, start_addr + quantity)):
             return dr_client.build_exception_payload(
                 slave_id, function_code, 2, "PRO2 illegal data address"
             )
         try:
             return dr_client.build_read_payload(
-                slave_id, function_code, start_addr, response_quantity
+                slave_id, function_code, start_addr, quantity
             )
         except Exception as exc:
             return dr_client.build_exception_payload(
