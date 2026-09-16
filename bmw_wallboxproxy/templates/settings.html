@@ -41,6 +41,8 @@
           <div class="note monospace">{{ profile.key }}{% if profile.key == meter_model %} · ACTIVE{% endif %}</div>
           <div class="note">{{ profile.phases }} · {{ profile.encoding }} · {{ profile.serial }}</div>
           <div class="note">L1 current register: <span class="monospace">{{ profile.current_register }}</span></div>
+          {% if profile.current_encoding %}<div class="note">PRO2 current encoding: <span class="monospace">{{ profile.current_encoding }}</span></div>{% endif %}
+          {% if profile.float_word_order %}<div class="note">FLOAT32 word order: <span class="monospace">{{ profile.float_word_order }}</span></div>{% endif %}
           <div class="note">{{ profile.notes }}</div>
         </div>
       {% endfor %}
