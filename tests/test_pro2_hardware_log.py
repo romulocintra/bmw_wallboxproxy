@@ -22,6 +22,7 @@ def test_capture_request_is_documented_pro2_l1_current():
 
 def test_capture_response_values_match_test_mode_sequence(monkeypatch):
     monkeypatch.setattr(config, "METER_MODEL", "inepro_pro2")
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "exact")
     monkeypatch.setattr(register_map, "get_float_word_order", lambda: "abcd")
     monkeypatch.setattr(register_map, "get_power_offset_override", lambda: None)
@@ -39,6 +40,7 @@ def test_capture_response_values_match_test_mode_sequence(monkeypatch):
 
 def test_capture_32a_response_is_exact_float32_abcd(monkeypatch):
     monkeypatch.setattr(config, "METER_MODEL", "inepro_pro2")
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "exact")
     monkeypatch.setattr(register_map, "get_float_word_order", lambda: "abcd")
     monkeypatch.setattr(register_map, "get_power_offset_override", lambda: None)
