@@ -34,6 +34,7 @@ options:
   transport_mode: rtu_over_tcp
   float_word_order: cdab
   inepro_500c_encoding: float32_abcd
+  custom_combination_code: ""
   register_alias_mode: exact
   u1_entity: ""
   u2_entity: ""
@@ -62,6 +63,7 @@ schema:
   transport_mode: "list(rtu_over_tcp|modbus_tcp)"
   float_word_order: "list(abcd|cdab)"
   inepro_500c_encoding: "list(int32_ma_cdab|int32_ma_abcd|float32_cdab|float32_abcd)"
+  custom_combination_code: "str?"
   register_alias_mode: "list(exact|alias_minus_1|alias_plus_1|alias_both)"
   u1_entity: "str?"
   u2_entity: "str?"
