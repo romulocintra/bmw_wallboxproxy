@@ -10,11 +10,13 @@ _lock = Lock()
 _DEFAULT_CONFIG = {
     0x4003: 1,
     0x4004: 9600,
-    0x400D: 10000.0,
+    0x400C: 5,
+    0x400D: 1000.0,
     0x400F: 3,
     0x4010: 10,
     0x4011: 1,
     0x4016: 0,
+    0x401F: 0,
     0x6048: 1,
     0x6049: 0.0,
 }
@@ -22,7 +24,7 @@ _DEFAULT_CONFIG = {
 _config = dict(_DEFAULT_CONFIG)
 _day_baseline_import = None
 
-_FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x6048}
+_FC06_REGS = {0x4003, 0x4004, 0x400F, 0x4010, 0x4011, 0x4016, 0x401F, 0x6048}
 _FC10_FLOAT_REGS = {0x400D, 0x6049}
 _S0_RATES = (10000.0, 2000.0, 1000.0, 100.0, 10.0, 1.0, 0.1, 0.01)
 
@@ -48,21 +50,18 @@ def _env_float(name: str, default: float) -> float:
 
 
 def get_identity() -> Dict[int, object]:
-    """Return PRO2 identity fields.
-
-    Serial number, meter code and firmware versions are per-device values;
-    the Inepro manual defines their registers/types but does not publish one
-    universal value. They are environment-configurable and default to zero
-    rather than pretending to be a real meter identity.
-    """
-    serial = max(0, min(_env_int("PRO2_SERIAL", 0), 0xFFFFFFFF))
+    """Return PRO2 identity fields using a single-phase L1 reference profile."""
+    serial = max(0, min(_env_int("PRO2_SERIAL", 15060001), 0xFFFFFFFF))
+    meter_code = max(0, min(_env_int("PRO2_METER_CODE", 0x0102), 0xFFFF))
     return {
         0x4000: serial,
-        0x4002: max(0, min(_env_int("PRO2_METER_CODE", 0), 0xFFFF)),
-        0x4005: _env_float("PRO2_PROTOCOL_VERSION", 0.0),
-        0x4007: _env_float("PRO2_SOFTWARE_VERSION", 0.0),
-        0x4009: _env_float("PRO2_HARDWARE_VERSION", 0.0),
-        0x400B: max(0, min(_env_int("PRO2_METER_AMPS", 100), 0x7FFF)),
+        0x4002: meter_code,
+        0x4005: _env_float("PRO2_PROTOCOL_VERSION", 3.2),
+        0x4007: _env_float("PRO2_SOFTWARE_VERSION", 1.18),
+        0x4009: _env_float("PRO2_HARDWARE_VERSION", 1.03),
+        0x400B: max(0, min(_env_int("PRO2_METER_AMPS", 100 if meter_code == 0x0102 else 5), 0x7FFF)),
+        0x400C: max(0, min(_env_int("PRO2_CT_RATE", 5), 0xFFFF)),
+        0x401F: max(0, min(_env_int("PRO2_CT_MODE", 0), 0xFFFF)),
     }
 
 
