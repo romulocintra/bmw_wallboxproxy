@@ -16,6 +16,7 @@ def _request(slave=1, function_code=3, start_addr=0x500C, quantity=2):
 
 
 def test_raw_response_replaces_generated_rtu_response(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE_ENABLED", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE", "01 03 04 00 00 4B 78")
 
@@ -27,6 +28,7 @@ def test_raw_response_replaces_generated_rtu_response(monkeypatch):
 
 
 def test_raw_response_does_not_replace_when_disabled(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE_ENABLED", "false")
     monkeypatch.setenv("TEST_RAW_RESPONSE", "01 03 04 00 00 4B 78")
 
@@ -36,7 +38,19 @@ def test_raw_response_does_not_replace_when_disabled(monkeypatch):
     assert response[:-2] != bytes.fromhex("01 03 04 00 00 4B 78")
 
 
+def test_raw_response_requires_test_mode(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "false")
+    monkeypatch.setenv("TEST_RAW_RESPONSE_ENABLED", "true")
+    monkeypatch.setenv("TEST_RAW_RESPONSE", "01 03 04 00 00 4B 78")
+
+    response = dr_client.handle_rtu_request(_request())
+
+    assert response is not None
+    assert response[:-2] != bytes.fromhex("01 03 04 00 00 4B 78")
+
+
 def test_raw_response_does_not_replace_modbus_requests(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE_ENABLED", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE", "01 03 04 00 00 4B 78")
 
@@ -45,6 +59,7 @@ def test_raw_response_does_not_replace_modbus_requests(monkeypatch):
 
 
 def test_raw_response_rejects_invalid_hex(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE_ENABLED", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE", "01 03 04 ZZ")
 
@@ -57,6 +72,7 @@ def test_raw_response_rejects_invalid_hex(monkeypatch):
 
 
 def test_raw_response_rejects_mismatched_byte_count(monkeypatch):
+    monkeypatch.setenv("TEST_MODE", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE_ENABLED", "true")
     monkeypatch.setenv("TEST_RAW_RESPONSE", "01 03 06 00 00 4B 78")
 
