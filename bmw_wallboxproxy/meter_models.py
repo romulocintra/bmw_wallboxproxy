@@ -125,12 +125,7 @@ def build_inepro_pro380(values: dict, word_order: str) -> Dict[int, int]:
 
 
 def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
-    """Build the documented non-PRO380 PRO2-Mod register map.
-
-    The manual explicitly marks L2/L3, CT-ratio and phase-specific entries
-    with '*' as PRO380-only. PRO2 therefore exposes only the registers listed
-    here; unsupported addresses are rejected by the Modbus dispatcher.
-    """
+    """Build the documented non-PRO380 PRO2-Mod register map."""
     enc = _float_encoder("abcd")
     regs: Dict[int, int] = {}
     identity = get_identity()
@@ -146,7 +141,9 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     combo = int(values.get("combination_code", 1))
     tariff = int(values.get("tariff", 1))
     current = _value(values, "p_total")
-    direction = ord("R") if current < 0 else ord("F")
+    reverse = current < 0
+    direction_word = 0x3152 if reverse else 0x3146  # ASCII "1R" / "1F"
+    quadrant = 4 if reverse else 1
 
     for addr, value in (
         (0x4003, int(values.get("modbus_id", 1))),
@@ -154,17 +151,20 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
         (0x400F, combo),
         (0x4010, int(values.get("lcd_cycle", 10))),
         (0x4011, int(values.get("parity", 1))),
-        (0x4012, direction),
+        (0x4012, direction_word),
+        (0x4013, 0x2020),  # L2 direction: two spaces on a single-phase meter
+        (0x4014, 0x2020),  # L3 direction: two spaces on a single-phase meter
         (0x4015, 0),
         (0x4016, int(values.get("power_down_counter", 0))),
-        # The manual defines the field but not the numeric quadrant encoding.
-        # Preserve the documented/default forward quadrant until a real meter
-        # capture supplies the vendor-specific mapping.
-        (0x4017, 1),
-        (0x401B, int(values.get("checksum", 0))),
-        (0x401C, 0),
-        (0x401D, int(values.get("active_status", 0))),
-        (0x401E, 0),
+        (0x4017, quadrant),
+        (0x4018, quadrant),
+        (0x4019, 0),
+        (0x401A, 0),
+        (0x401B, int(values.get("checksum_hi", 0))),
+        (0x401C, int(values.get("checksum_lo", 0))),
+        (0x401D, int(values.get("active_status_hi", 0))),
+        (0x401E, int(values.get("active_status_lo", 0))),
+        (0x401F, int(values.get("ct_mode", 0))),
         (0x6048, tariff),
     ):
         _put_u16(regs, addr, value)
