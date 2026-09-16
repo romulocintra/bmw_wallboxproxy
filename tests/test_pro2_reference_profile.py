@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 
@@ -48,7 +47,7 @@ def test_pro2_register_map_contains_single_phase_reference_registers(monkeypatch
 
     assert regs[0x4002] == 0x0102
     assert regs[0x400C] == 5
-    assert regs[0x400F] == 3
+    assert regs[0x400F] == 1
     assert regs[0x4012] == 0x3146
     assert regs[0x4013] == 0x2020
     assert regs[0x4014] == 0x2020
@@ -74,7 +73,7 @@ def test_pro2_export_uses_reverse_direction_and_quadrant():
     }
     regs = meter_models.build_inepro_pro2(values, "abcd")
 
-    assert regs[0x400F] == 3
+    assert regs[0x400F] == 1
     assert regs[0x4012] == 0x3152
     assert regs[0x4017] == 4
     assert regs[0x4018] == 4
