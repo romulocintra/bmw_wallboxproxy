@@ -21,7 +21,7 @@ def test_meter_model_defaults_when_unset(monkeypatch):
 
 
 def test_inepro_500c_encoding_supports_all_test_modes(monkeypatch):
-    for mode in ("int32_ma_cdab", "float32_cdab", "float32_abcd"):
+    for mode in ("int32_ma_cdab", "int32_ma_abcd", "float32_cdab", "float32_abcd"):
         monkeypatch.setenv("MODBUS_INEPRO_500C_ENCODING", mode)
         reloaded=importlib.reload(config)
         assert reloaded.MODBUS_INEPRO_500C_ENCODING == mode
@@ -44,7 +44,7 @@ def test_addon_schema_lists_all_supported_meter_models():
     addon=open("bmw_wallboxproxy/config.yaml",encoding="utf-8").read()
     assert 'meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23|janitza_b21)"' in addon
     assert 'test_mode: "bool"' in addon
-    assert 'inepro_500c_encoding: "list(int32_ma_cdab|float32_cdab|float32_abcd)"' in addon
+    assert 'inepro_500c_encoding: "list(int32_ma_cdab|int32_ma_abcd|float32_cdab|float32_abcd)"' in addon
 
 
 @pytest.fixture(autouse=True)

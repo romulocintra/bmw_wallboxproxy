@@ -126,7 +126,7 @@ MODBUS_FLOAT_WORD_ORDER = _env_choice("MODBUS_FLOAT_WORD_ORDER", "abcd", {"abcd"
 MODBUS_INEPRO_500C_ENCODING = _env_choice(
     "MODBUS_INEPRO_500C_ENCODING",
     "int32_ma_cdab",
-    {"int32_ma_cdab", "float32_cdab", "float32_abcd"},
+    {"int32_ma_cdab", "int32_ma_abcd", "float32_cdab", "float32_abcd"},
 )
 MODBUS_REGISTER_ALIAS_MODE = _env_choice("MODBUS_REGISTER_ALIAS_MODE", "exact", {"exact", "alias_minus_1", "alias_plus_1", "alias_both"})
 METER_MODEL = _env_choice("METER_MODEL", "inepro_pro380", {"inepro_pro380", "inepro_pro2", "janitza_b23", "janitza_b21"})

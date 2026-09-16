@@ -32,9 +32,10 @@ options:
   test_frequency_hz: 50.0
   test_power_factor: 1.0
   transport_mode: rtu_over_tcp
-  # Delta Electronics BMW wallboxes expect Inepro-compatible FLOAT32 words as CDAB.
+  # FLOAT32 word order; independent from the explicit Int32 current encoding below.
   float_word_order: cdab
-  # Experimental selector for Delta PRO2 current registers 0x500C/0x500E/0x5010.
+  # Explicit encoding for Delta PRO2 current registers 0x500C/0x500E/0x5010.
+  # int32_ma_cdab = 0x00004B78 -> words 4B78 0000; int32_ma_abcd -> 0000 4B78.
   inepro_500c_encoding: int32_ma_cdab
   register_alias_mode: exact
   u1_entity: ""
@@ -61,7 +62,7 @@ schema:
   test_power_factor: "float"
   transport_mode: "list(rtu_over_tcp|modbus_tcp)"
   float_word_order: "list(abcd|cdab)"
-  inepro_500c_encoding: "list(int32_ma_cdab|float32_cdab|float32_abcd)"
+  inepro_500c_encoding: "list(int32_ma_cdab|int32_ma_abcd|float32_cdab|float32_abcd)"
   register_alias_mode: "list(exact|alias_minus_1|alias_plus_1|alias_both)"
   u1_entity: "str?"
   u2_entity: "str?"
