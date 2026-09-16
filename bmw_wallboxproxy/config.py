@@ -136,6 +136,8 @@ TEST_CURRENT_A: Optional[float] = _env_float_any("TEST_CURRENT_A")
 TEST_VOLTAGE_V = _env_float("TEST_VOLTAGE_V", 230.0)
 TEST_FREQUENCY_HZ = _env_float("TEST_FREQUENCY_HZ", 50.0)
 TEST_POWER_FACTOR = min(1.0, _env_float("TEST_POWER_FACTOR", 1.0))
+TEST_RAW_RESPONSE_ENABLED = _env_bool("TEST_RAW_RESPONSE_ENABLED", False)
+TEST_RAW_RESPONSE = _env_str("TEST_RAW_RESPONSE", "")
 ENTITIES = _load_entity_settings()
 
 
