@@ -43,7 +43,7 @@ options:
   e_import_total_entity: ""
   e_export_total_entity: ""
   power_offset_entity: ""
- schema:
+schema:
   ha_token: "password?"
   meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23|janitza_b21)"
   test_mode: "bool"
