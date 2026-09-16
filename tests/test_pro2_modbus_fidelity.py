@@ -1,4 +1,3 @@
-import os
 import struct
 import sys
 from pathlib import Path
@@ -44,8 +43,7 @@ def _pro380_only_word_addresses():
         0x6016, 0x601E, 0x6020, 0x6022, 0x602A, 0x602C, 0x602E,
         0x6036, 0x6038, 0x603A, 0x6042, 0x6044, 0x6046,
     }
-    singles = {0x400C, 0x4013, 0x4014, 0x4018, 0x4019, 0x401A, 0x401F}
-    words = set(singles)
+    words = set()
     for addr in pairs:
         words.update((addr, addr + 1))
     return words
@@ -75,16 +73,32 @@ def test_pro2_documented_defaults_and_dynamic_direction():
     assert forward[0x400F] == 1
     assert forward[0x4010] == 10
     assert forward[0x4011] == 1
-    assert forward[0x4012] == 0x3146  # ASCII "1F"
-    assert reverse[0x4012] == 0x3152  # ASCII "1R"
+    assert forward[0x4012] == 0x3146
+    assert reverse[0x4012] == 0x3152
     assert forward[0x4013] == 0x2020
     assert forward[0x4014] == 0x2020
     assert forward[0x4015] == 0
     assert forward[0x4017] == 1
     assert forward[0x4018] == 1
+    assert forward[0x4019] == 0
+    assert forward[0x401A] == 0
     assert reverse[0x4017] == 4
     assert reverse[0x4018] == 4
+    assert reverse[0x4019] == 0
+    assert reverse[0x401A] == 0
     assert _f32(forward, 0x6000) == 10.0
+
+
+def test_pro2_identity_status_and_checksum_words_are_present():
+    regs = build_inepro_pro2(
+        {"checksum_hi": 0x1234, "checksum_lo": 0x5678,
+         "active_status_hi": 0x0001, "active_status_lo": 0x0002},
+        "abcd",
+    )
+    assert regs[0x401B] == 0x1234
+    assert regs[0x401C] == 0x5678
+    assert regs[0x401D] == 0x0001
+    assert regs[0x401E] == 0x0002
 
 
 def test_pro2_combination_codes_calculate_total_active_energy():
