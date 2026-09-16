@@ -5,7 +5,9 @@
 - Allow custom test voltage, frequency and power factor with `test_voltage_v`, `test_frequency_hz` and `test_power_factor`.
 - Generate coherent active, reactive and apparent power values from the configured test voltage/current/power factor.
 - Keep the feature available across all supported meter profiles while preserving the existing PRO2 single-phase collapse behaviour.
-- Add regression coverage for custom values and the unchanged default test sequence.
+- Make PRO2 Int32 current word order explicit with independent `int32_ma_cdab` and `int32_ma_abcd` modes.
+- Ensure `float_word_order` and `register_alias_mode` cannot silently change the canonical PRO2 Int32 current registers.
+- Add regression coverage for custom values, explicit Int32 byte ordering and alias interaction.
 
 ## 0.2.32
 
