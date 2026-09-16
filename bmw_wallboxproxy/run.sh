@@ -18,6 +18,7 @@ export METER_MODEL="$(bashio::config 'meter_model')"
 export TEST_MODE="$(bashio::config 'test_mode')"
 export MODBUS_TRANSPORT_MODE="$(bashio::config 'transport_mode')"
 export MODBUS_FLOAT_WORD_ORDER="$(bashio::config 'float_word_order')"
+export MODBUS_INEPRO_500C_ENCODING="$(bashio::config 'inepro_500c_encoding')"
 export MODBUS_REGISTER_ALIAS_MODE="$(bashio::config 'register_alias_mode')"
 export HA_ENTITY_U1="$(bashio::config 'u1_entity')"
 export HA_ENTITY_U2="$(bashio::config 'u2_entity')"
@@ -39,5 +40,6 @@ bashio::log.info "Web UI is served over Home Assistant ingress on internal HTTP 
 bashio::log.info "Runtime settings are sourced from the Home Assistant add-on configuration"
 bashio::log.info "Meter model: ${METER_MODEL}"
 bashio::log.info "Test mode: ${TEST_MODE}"
+bashio::log.info "Inepro 0x500C/current encoding: ${MODBUS_INEPRO_500C_ENCODING}"
 
 exec /opt/venv/bin/python /app/app.py

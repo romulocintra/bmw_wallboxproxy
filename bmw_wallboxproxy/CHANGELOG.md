@@ -1,3 +1,13 @@
+## 0.2.32
+
+- Make the Delta Electronics Inepro PRO2 current encoding configurable from the Home Assistant add-on configuration.
+- Add `inepro_500c_encoding` with `int32_ma_cdab`, `float32_cdab`, and `float32_abcd` modes.
+- Default the experimental Delta current mode to Int32 milliamps with CDAB word swap.
+- Apply the selected current encoding to PRO2 registers `0x500C`, `0x500E`, and `0x5010` while preserving the exact two-register / 4-byte response size.
+- Keep PRO2 voltage `0x5000` and active power `0x5012` on the configured FLOAT32 word order.
+- Add regression tests for all three current encoding modes and the unchanged voltage/power encoding.
+- Document the hardware test workflow and configuration options for iterating on Delta meter compatibility.
+
 ## 0.2.31
 
 - Fix the Delta Electronics / Inepro PRO2 response to two-register FLOAT32 reads at `0x5000`, `0x500C`, `0x500E`, `0x5010` and `0x5012`.

@@ -20,19 +20,34 @@ def test_meter_model_defaults_when_unset(monkeypatch):
     monkeypatch.delenv("METER_MODEL",raising=False); reloaded=importlib.reload(config); assert reloaded.get_meter_model()=="inepro_pro380"
 
 
+def test_inepro_500c_encoding_supports_all_test_modes(monkeypatch):
+    for mode in ("int32_ma_cdab", "float32_cdab", "float32_abcd"):
+        monkeypatch.setenv("MODBUS_INEPRO_500C_ENCODING", mode)
+        reloaded=importlib.reload(config)
+        assert reloaded.MODBUS_INEPRO_500C_ENCODING == mode
+
+
+def test_invalid_inepro_500c_encoding_falls_back_to_int32_cdab(monkeypatch):
+    monkeypatch.setenv("MODBUS_INEPRO_500C_ENCODING","unsupported")
+    reloaded=importlib.reload(config)
+    assert reloaded.MODBUS_INEPRO_500C_ENCODING == "int32_ma_cdab"
+
+
 def test_addon_configuration_contains_meter_model_and_test_mode_mapping():
     run_script=open("bmw_wallboxproxy/run.sh",encoding="utf-8").read()
     assert 'export METER_MODEL="$(bashio::config \'meter_model\')"' in run_script
     assert 'export TEST_MODE="$(bashio::config \'test_mode\')"' in run_script
+    assert 'export MODBUS_INEPRO_500C_ENCODING="$(bashio::config \'inepro_500c_encoding\')"' in run_script
 
 
 def test_addon_schema_lists_all_supported_meter_models():
     addon=open("bmw_wallboxproxy/config.yaml",encoding="utf-8").read()
     assert 'meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23|janitza_b21)"' in addon
     assert 'test_mode: "bool"' in addon
+    assert 'inepro_500c_encoding: "list(int32_ma_cdab|float32_cdab|float32_abcd)"' in addon
 
 
 @pytest.fixture(autouse=True)
 def restore_config_module(monkeypatch):
     yield
-    monkeypatch.delenv("METER_MODEL",raising=False); monkeypatch.delenv("TEST_MODE",raising=False); importlib.reload(config)
+    monkeypatch.delenv("METER_MODEL",raising=False); monkeypatch.delenv("TEST_MODE",raising=False); monkeypatch.delenv("MODBUS_INEPRO_500C_ENCODING",raising=False); importlib.reload(config)
