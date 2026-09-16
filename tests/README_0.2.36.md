@@ -1,0 +1,1 @@
+Coverage for the PRO2 single-phase reference profile is in test_pro2_reference_profile.py.
