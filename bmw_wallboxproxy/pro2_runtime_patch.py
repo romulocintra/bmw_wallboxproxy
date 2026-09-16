@@ -1,4 +1,4 @@
-"""Install PRO2-specific Modbus behaviour without changing other meter models."""
+"""Install Inepro-specific Modbus compatibility without changing Janitza models."""
 
 import struct
 import time
@@ -18,8 +18,11 @@ def _is_pro2() -> bool:
     return config.get_meter_model() == "inepro_pro2"
 
 
+def _is_inepro() -> bool:
+    return config.get_meter_model() in ("inepro_pro2", "inepro_pro380")
+
+
 def _record_decoded(slave_id, function_code, start_addr, quantity, transport):
-    """Keep the PRO2 dispatcher on the same activity/stats path as dr_client."""
     with dr_client.stats_lock:
         dr_client.stats["last_fc"] = function_code
         dr_client.stats["last_start_addr"] = f"0x{start_addr:04X}"
@@ -31,21 +34,25 @@ def _record_decoded(slave_id, function_code, start_addr, quantity, transport):
     )
 
 
-def _pro2_effective_quantity(start_addr: int, quantity: int) -> int:
-    """Expand Delta's two-register phase reads to the complete phase block.
-
-    Some Delta Electronics BMW wallboxes request only the first FLOAT32 at
-    0x5000 or 0x500C but expect the Inepro-compatible response to contain the
-    complete three-phase block.  Keep normal Modbus reads unchanged and apply
-    the compatibility expansion only to those two phase-block starts.
-    """
+def _inepro_effective_quantity(start_addr: int, quantity: int) -> int:
+    """Expand Delta's short phase reads to complete three-phase FLOAT32 blocks."""
     if quantity == 2 and start_addr in (0x5000, 0x500C):
         return 6
     return quantity
 
 
 def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
+    if not _is_inepro():
+        return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
+
+    # PRO380 keeps the normal dispatcher semantics; only the Delta phase-block
+    # compatibility expansion is applied here.
     if not _is_pro2():
+        response_quantity = _inepro_effective_quantity(start_addr, quantity)
+        if response_quantity != quantity and function_code in (3, 4):
+            return _ORIGINAL_DECODED(
+                slave_id, function_code, start_addr, response_quantity, transport
+            )
         return _ORIGINAL_DECODED(slave_id, function_code, start_addr, quantity, transport)
 
     _record_decoded(slave_id, function_code, start_addr, quantity, transport)
@@ -72,7 +79,7 @@ def _pro2_decoded(slave_id, function_code, start_addr, quantity, transport):
                 slave_id, function_code, 3, f"illegal quantity {quantity}"
             )
 
-        response_quantity = _pro2_effective_quantity(start_addr, quantity)
+        response_quantity = _inepro_effective_quantity(start_addr, quantity)
         if any(addr not in reg_map for addr in range(start_addr, start_addr + response_quantity)):
             return dr_client.build_exception_payload(
                 slave_id, function_code, 2, "PRO2 illegal data address"
@@ -166,9 +173,10 @@ def _tcp(frame: bytes):
     with dr_client.stats_lock:
         dr_client.stats["rx_frames"] += 1
         dr_client.stats["bytes_rx"] += len(frame)
-        dr_client.stats["last_rx"] = time.strftime("%H:%M:%S")
-        dr_client.stats["last_crc_received"] = "-"
-        dr_client.stats["last_crc_expected"] = "-"
+        stats = dr_client.stats
+        stats["last_rx"] = time.strftime("%H:%M:%S")
+        stats["last_crc_received"] = "-"
+        stats["last_crc_expected"] = "-"
 
     transaction_id, protocol_id, length = struct.unpack(">HHH", frame[:6])
     unit_id = frame[6]
