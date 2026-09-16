@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy (Multi-Meter)
-version: "0.2.35"
+version: "0.2.36"
 slug: bmw_wallboxproxy_multimeter
 description: Emulate Inepro PRO380/PRO2 or Janitza B21/B23 Modbus meters for BMW wallboxes.
 arch:
@@ -69,13 +69,13 @@ schema:
   i1_entity: "str?"
   i2_entity: "str?"
   i3_entity: "str?"
-  p_total_entity: "str?"
-  freq_entity: "str?"
-  p1_entity: "str?"
-  p2_entity: "str?"
-  p3_entity: "str?"
-  e_import_total_entity: "str?"
-  e_export_total_entity: "str?"
-  power_offset_entity: "str?"
+  p_total_entity: ""
+  freq_entity: ""
+  p1_entity: ""
+  p2_entity: ""
+  p3_entity: ""
+  e_import_total_entity: ""
+  e_export_total_entity: ""
+  power_offset_entity: ""
 watchdog: http://[HOST]:[PORT:8099]/api/state
 timeout: 20
