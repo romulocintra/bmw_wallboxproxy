@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy (Multi-Meter)
-version: "0.2.31"
+version: "0.2.32"
 slug: bmw_wallboxproxy_multimeter
 description: Emulate Inepro PRO380/PRO2 or Janitza B21/B23 Modbus meters for BMW wallboxes.
 arch:
@@ -29,6 +29,8 @@ options:
   transport_mode: rtu_over_tcp
   # Delta Electronics BMW wallboxes expect Inepro-compatible FLOAT32 words as CDAB.
   float_word_order: cdab
+  # Experimental selector for Delta PRO2 current registers 0x500C/0x500E/0x5010.
+  inepro_500c_encoding: int32_ma_cdab
   register_alias_mode: exact
   u1_entity: ""
   u2_entity: ""
@@ -50,6 +52,7 @@ schema:
   test_mode: "bool"
   transport_mode: "list(rtu_over_tcp|modbus_tcp)"
   float_word_order: "list(abcd|cdab)"
+  inepro_500c_encoding: "list(int32_ma_cdab|float32_cdab|float32_abcd)"
   register_alias_mode: "list(exact|alias_minus_1|alias_plus_1|alias_both)"
   u1_entity: "str?"
   u2_entity: "str?"
