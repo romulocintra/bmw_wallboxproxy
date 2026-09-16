@@ -46,12 +46,12 @@ def test_rtu_over_tcp_pro380_returns_valid_float_response(monkeypatch):
     assert abs(struct.unpack(">f", struct.pack(">HH", *words))[0] - 16.21) < 1e-5
 
 
-def test_rtu_over_tcp_pro2_rejects_pro380_only_register(monkeypatch):
+def test_rtu_over_tcp_pro2_documented_l2_current_is_zero(monkeypatch):
     _set_values(monkeypatch, "inepro_pro2")
     response = dr_client.handle_rtu_request(_request(1, 3, 0x500E, 2))
     assert response is not None
-    assert response[:3] == bytes.fromhex("01 83 02")
-    assert modbus_crc(response[:-2]) == struct.unpack("<H", response[-2:])[0]
+    words = _response_words(response)
+    assert words == [0, 0]
 
 
 def test_rtu_crc_invalid_frame_is_dropped(monkeypatch):
