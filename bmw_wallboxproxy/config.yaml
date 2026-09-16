@@ -59,7 +59,8 @@ schema:
   ha_token: "password?"
   meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23|janitza_b21)"
   test_mode: "bool"
-  test_current_a: "float?"
+  # String so Home Assistant accepts an empty value; the runtime parses a numeric string when provided.
+  test_current_a: "str?"
   test_voltage_v: "float"
   test_frequency_hz: "float"
   test_power_factor: "float"
