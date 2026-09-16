@@ -9,7 +9,7 @@ def _f32(regs, addr):
     return struct.unpack(">f", raw)[0]
 
 
-def test_pro2_identity_defaults_are_explicit_not_fake_device_values(monkeypatch):
+def test_pro2_identity_defaults_match_reference_profile(monkeypatch):
     reset_state()
     monkeypatch.delenv("PRO2_SERIAL", raising=False)
     monkeypatch.delenv("PRO2_METER_CODE", raising=False)
@@ -27,15 +27,17 @@ def test_pro2_identity_defaults_are_explicit_not_fake_device_values(monkeypatch)
         "pf_total": 0.95,
         "e_import": 100.0,
         "e_export": 0.0,
-        "combination_code": 1,
     }, "abcd")
 
-    assert regs[0x4000] == 0
-    assert regs[0x4001] == 0
-    assert regs[0x4002] == 0
-    assert _f32(regs, 0x4005) == 0.0
-    assert _f32(regs, 0x4007) == 0.0
-    assert _f32(regs, 0x4009) == 0.0
+    assert _u32(regs, 0x4000) == 15060001
+    assert regs[0x4002] == 0x0102
+    assert _f32(regs, 0x4005) == pytest.approx(3.2)
+    assert _f32(regs, 0x4007) == pytest.approx(1.18)
+    assert _f32(regs, 0x4009) == pytest.approx(1.03)
+    assert regs[0x400B] == 100
+    assert regs[0x400C] == 5
+    assert regs[0x401F] == 0
+    assert regs[0x400F] == 1
 
 
 def test_pro2_identity_can_match_a_physical_meter_capture(monkeypatch):
@@ -49,12 +51,11 @@ def test_pro2_identity_can_match_a_physical_meter_capture(monkeypatch):
 
     regs = build_inepro_pro2({"u1": 230.0, "freq": 50.0, "i1": 6.0}, "abcd")
 
-    assert regs[0x4000] == 0x0000
-    assert regs[0x4001] == 0x0001
+    assert _u32(regs, 0x4000) == 15060001
     assert regs[0x4002] == 0x0102
-    assert _f32(regs, 0x4005) == 3.2
-    assert _f32(regs, 0x4007) == 1.18
-    assert _f32(regs, 0x4009) == 1.03
+    assert _f32(regs, 0x4005) == pytest.approx(3.2)
+    assert _f32(regs, 0x4007) == pytest.approx(1.18)
+    assert _f32(regs, 0x4009) == pytest.approx(1.03)
     assert regs[0x400B] == 100
 
 
@@ -64,7 +65,7 @@ def test_pro2_power_is_exposed_in_kw():
     assert abs(_f32(regs, 0x5012) - 3.5) < 1e-6
 
 
-def test_pro2_l1_measurement_only():
+def test_pro2_l1_measurement_profile_includes_documented_zero_phase_registers():
     reset_state()
     regs = build_inepro_pro2({
         "u1": 230.0,
@@ -76,6 +77,13 @@ def test_pro2_l1_measurement_only():
     assert abs(_f32(regs, 0x5002) - 230.0) < 1e-6
     assert abs(_f32(regs, 0x500C) - 10.0) < 1e-6
     assert abs(_f32(regs, 0x5012) - 2.3) < 1e-6
-    assert 0x5004 not in regs
-    assert 0x500E not in regs
-    assert 0x5010 not in regs
+    assert _f32(regs, 0x5004) == 0.0
+    assert _f32(regs, 0x500E) == 0.0
+    assert _f32(regs, 0x5010) == 0.0
+
+
+def _u32(regs, addr):
+    return (regs[addr] << 16) | regs[addr + 1]
+
+
+import pytest
