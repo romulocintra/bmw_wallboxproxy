@@ -11,7 +11,7 @@ _DEFAULT_CONFIG = {
     0x4003: 1,
     0x4004: 9600,
     0x400D: 10000.0,
-    0x400F: 1,
+    0x400F: 3,
     0x4010: 10,
     0x4011: 1,
     0x4016: 0,
@@ -99,7 +99,6 @@ def update_day_counter(import_kwh: float) -> float:
         elif value >= _day_baseline_import:
             _config[0x6049] = max(0.0, value - _day_baseline_import)
         else:
-            # Source counter was reset/decreased; start a new baseline.
             _day_baseline_import = value
             _config[0x6049] = 0.0
         return float(_config[0x6049])
@@ -121,7 +120,7 @@ def write_fc06(addr: int, value: int) -> None:
         raise ValueError("Modbus ID must be 1..247")
     if addr == 0x4004 and value not in (1200, 2400, 4800, 9600):
         raise ValueError("PRO2 baud must be 1200, 2400, 4800 or 9600")
-    if addr == 0x400F and value not in (1, 4, 5, 6, 9, 10):
+    if addr == 0x400F and value not in (1, 2, 3, 4, 5):
         raise ValueError("invalid PRO2 combination code")
     if addr == 0x4010 and not 1 <= value <= 30:
         raise ValueError("LCD cycle time must be 1..30")

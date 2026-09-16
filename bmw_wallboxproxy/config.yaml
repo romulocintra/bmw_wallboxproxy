@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy (Multi-Meter)
-version: "0.2.34"
+version: "0.2.35"
 slug: bmw_wallboxproxy_multimeter
 description: Emulate Inepro PRO380/PRO2 or Janitza B21/B23 Modbus meters for BMW wallboxes.
 arch:
@@ -24,21 +24,15 @@ ports_description:
 options:
   ha_token: ""
   meter_model: inepro_pro380
-  # Deterministic electrical data for compatibility testing. Applies to every meter profile.
   test_mode: false
-  # Optional fixed test current. Leave empty to use the built-in current sequence.
   test_current_a: ""
   test_voltage_v: 230.0
   test_frequency_hz: 50.0
   test_power_factor: 1.0
-  # Raw RTU response frame override, without the two-byte CRC. Test-mode only.
   test_raw_response_enabled: false
   test_raw_response: ""
   transport_mode: rtu_over_tcp
-  # FLOAT32 word order; independent from the explicit Int32 current encoding below.
   float_word_order: cdab
-  # Explicit encoding for Delta PRO2 current registers 0x500C/0x500E/0x5010.
-  # int32_ma_cdab = 0x00004B78 -> words 4B78 0000; int32_ma_abcd -> 0000 4B78.
   inepro_500c_encoding: int32_ma_cdab
   register_alias_mode: exact
   u1_entity: ""
@@ -59,7 +53,6 @@ schema:
   ha_token: "password?"
   meter_model: "list(inepro_pro380|inepro_pro2|janitza_b23|janitza_b21)"
   test_mode: "bool"
-  # String so Home Assistant accepts an empty value; the runtime parses a numeric string when provided.
   test_current_a: "str?"
   test_voltage_v: "float"
   test_frequency_hz: "float"
