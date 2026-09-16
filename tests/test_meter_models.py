@@ -57,22 +57,23 @@ def test_inepro_pro2_identity_and_default_configuration():
     assert regs[0x4015] == 0
     assert regs[0x4016] == 0
     assert regs[0x4017] == 1
-    assert _u32(regs, 0x4000) == 0
-    assert _f32(regs, 0x4005) == 0.0
-    assert _f32(regs, 0x4007) == 0.0
-    assert _f32(regs, 0x4009) == 0.0
+    assert regs[0x400C] == 5
+    assert regs[0x401F] == 0
+    assert _u32(regs, 0x4000) == 15060001
+    assert _f32(regs, 0x4005) == pytest.approx(3.2)
+    assert _f32(regs, 0x4007) == pytest.approx(1.18)
+    assert _f32(regs, 0x4009) == pytest.approx(1.03)
     assert _u32(regs, 0x401B) == 0
     assert _u32(regs, 0x401D) == 0
 
 
-def test_inepro_pro2_excludes_pro380_only_registers():
+def test_inepro_pro2_includes_documented_single_phase_zero_registers():
     regs = build_inepro_pro2({"u1": 230.0, "i1": 16.21, "p_total": 3.7285}, "abcd")
     for addr in (0x400C, 0x4013, 0x4014, 0x4018, 0x4019, 0x401A, 0x401F,
-                 0x5004, 0x5006, 0x500E, 0x5010, 0x5014, 0x5016, 0x5018,
-                 0x501C, 0x501E, 0x5020, 0x5024, 0x5026, 0x5028, 0x502C, 0x502E, 0x5030,
-                 0x6006, 0x6008, 0x600A, 0x6012, 0x6014, 0x6016, 0x601E, 0x6020, 0x6022,
-                 0x602A, 0x602C, 0x602E, 0x6036, 0x6038, 0x603A, 0x6042, 0x6044, 0x6046):
-        assert addr not in regs
+                 0x5004, 0x5006, 0x500E, 0x5010):
+        assert addr in regs
+    assert _f32(regs, 0x5004) == 0.0
+    assert _f32(regs, 0x500E) == 0.0
 
 
 def test_inepro_pro2_measurements_use_physical_register_types():
@@ -89,7 +90,7 @@ def test_inepro_pro2_measurements_use_physical_register_types():
     assert math.isclose(_f32(regs, 0x502A), 1.0, rel_tol=1e-6)
 
 
-def test_inepro_pro2_energy_map_contains_only_supported_fields():
+def test_inepro_pro2_energy_map_contains_supported_fields():
     regs = build_inepro_pro2({"e_total": 123.4, "e_import": 120.0, "e_export": 3.4}, "abcd")
     assert math.isclose(_f32(regs, 0x6000), 123.4, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x6002), 0.0, abs_tol=1e-9)
@@ -131,3 +132,6 @@ def test_janitza_b23_zeroes_unused_phases_for_single_phase_installation():
     assert _u32(regs, 0x5B10) == 0
     assert _u32(regs, 0x5B18) == 0
     assert _u32(regs, 0x5B1A) == 0
+
+
+import pytest
