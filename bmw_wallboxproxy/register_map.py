@@ -126,6 +126,27 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
     return model_values
 
 
+def _apply_inepro_current_encoding(regs: Dict[int, int], values: dict) -> Dict[int, int]:
+    """Apply the selectable Delta current encoding to the PRO2 current block."""
+    mode = config.MODBUS_INEPRO_500C_ENCODING
+    if mode == "float32_cdab":
+        return regs
+
+    current_addresses = ((0x500C, "i1"), (0x500E, "i2"), (0x5010, "i3"))
+    result = dict(regs)
+    for addr, name in current_addresses:
+        value = float(values.get(name, 0.0))
+        if mode == "int32_ma_cdab":
+            raw = max(-0x80000000, min(int(round(value * 1000.0)), 0x7FFFFFFF)) & 0xFFFFFFFF
+            result[addr] = raw & 0xFFFF
+            result[addr + 1] = (raw >> 16) & 0xFFFF
+        elif mode == "float32_abcd":
+            from modbus_codec import float_to_words, to_float32_safe
+            hi, lo = float_to_words(to_float32_safe(value), "abcd")
+            result[addr], result[addr + 1] = hi, lo
+    return result
+
+
 def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, int]:
     if alias_mode == "exact":
         return regs
@@ -154,9 +175,6 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
 
 
 def _apply_pro2_runtime_config(regs: Dict[int, int]) -> Dict[int, int]:
-    # The PRO2 builder already receives the writable runtime state. Keep this
-    # compatibility hook so callers relying on the old path still see the
-    # current values.
     return regs
 
 
@@ -164,12 +182,10 @@ def get_register_map() -> Dict[int, int]:
     model = get_meter_model()
     test_mode = get_test_mode()
     values = next_test_values() if test_mode else _snapshot_output_values()
-    regs = build_model_register_map(
-        model,
-        _build_model_values(values, model, test_mode=test_mode),
-        get_float_word_order(),
-    )
+    model_values = _build_model_values(values, model, test_mode=test_mode)
+    regs = build_model_register_map(model, model_values, get_float_word_order())
     if model == "inepro_pro2":
+        regs = _apply_inepro_current_encoding(regs, model_values)
         regs = _apply_pro2_runtime_config(regs)
     if model in ("inepro_pro380", "inepro_pro2"):
         regs = _apply_legacy_aliases(regs, get_register_alias_mode())
