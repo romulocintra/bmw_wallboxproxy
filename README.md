@@ -28,6 +28,7 @@ The Home Assistant add-on configuration is the source of truth. Change options i
 | `meter_model` | `inepro_pro380` | Virtual meter profile: `inepro_pro380`, `inepro_pro2`, or `janitza_b23`. |
 | `transport_mode` | `rtu_over_tcp` | Modbus framing: raw RTU carried over TCP or Modbus TCP. |
 | `float_word_order` | `cdab` | FLOAT32 word order for Inepro profiles; CDAB is the default required by Delta Electronics wallboxes. |
+| `inepro_500c_encoding` | `int32_ma_cdab` | Experimental encoding for the Inepro PRO2 current registers `0x500C`, `0x500E` and `0x5010`: Int32 milliamps CDAB, FLOAT32 CDAB, or FLOAT32 ABCD. |
 | `register_alias_mode` | `exact` | Legacy register compatibility mode for Inepro profiles. |
 | `u1_entity` | empty | Home Assistant L1 voltage entity. |
 | `u2_entity` | empty | Home Assistant L2 voltage entity. |
@@ -44,12 +45,33 @@ The Home Assistant add-on configuration is the source of truth. Change options i
 | `e_export_total_entity` | empty | Home Assistant aggregate exported/reverse energy entity. |
 | `power_offset_entity` | empty | Optional Home Assistant Number helper supplying a power offset in watts. |
 
+### Delta PRO2 encoding experiments
+
+For a Delta Electronics wallbox using `meter_model: inepro_pro2`, the `inepro_500c_encoding` option can be changed and the add-on restarted without changing the implementation:
+
+```yaml
+meter_model: inepro_pro2
+float_word_order: cdab
+inepro_500c_encoding: int32_ma_cdab
+```
+
+Supported values:
+
+- `int32_ma_cdab` — current in amperes is multiplied by 1000 and encoded as signed Int32 milliamps, then the two 16-bit words are swapped. This is the experimental/default option for testing the suspected Delta interpretation.
+- `float32_cdab` — IEEE-754 FLOAT32 with CDAB word swap.
+- `float32_abcd` — IEEE-754 FLOAT32 in normal big-endian ABCD order.
+
+The option affects the current registers `0x500C`, `0x500E` and `0x5010`. The voltage `0x5000` and active power `0x5012` remain FLOAT32 and use the configured `float_word_order`.
+
+All of these modes preserve the Modbus request quantity: a request for two registers receives `Byte Count = 0x04` and a 9-byte RTU response including CRC.
+
 ### Single-phase PRO2 example
 
 ```yaml
 meter_model: inepro_pro2
 transport_mode: rtu_over_tcp
 float_word_order: cdab
+inepro_500c_encoding: int32_ma_cdab
 register_alias_mode: exact
 u1_entity: sensor.inverter_grid_l1_voltage
 i1_entity: sensor.inverter_grid_l1_current
@@ -71,14 +93,14 @@ The `inepro_pro380` profile follows the documented PRO380 Modbus register map, i
 
 ### Inepro PRO2
 
-The `inepro_pro2` profile is specifically intended for **single-phase installations**. For the Delta Electronics compatibility profile, FLOAT32 measurement values use **CDAB word-swapped encoding**. The key measurement registers are:
+The `inepro_pro2` profile is specifically intended for **single-phase installations**. For the Delta Electronics compatibility profile, FLOAT32 measurement values use **CDAB word-swapped encoding**, except when the experimental `inepro_500c_encoding` option selects another encoding for the current block. The key measurement registers are:
 
-| Register | Measurement | Encoding | Response to a 2-register read |
+| Register | Measurement | Default Delta encoding | Response to a 2-register read |
 |---|---|---|---|
 | `0x5000` | Voltage L1 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
-| `0x500C` | Current L1 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
-| `0x500E` | Current L2 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
-| `0x5010` | Current L3 | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x500C` | Current L1 | Int32 milliamps CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x500E` | Current L2 | Int32 milliamps CDAB | 4-byte payload (`Byte Count = 0x04`) |
+| `0x5010` | Current L3 | Int32 milliamps CDAB | 4-byte payload (`Byte Count = 0x04`) |
 | `0x5012` | Total active power | FLOAT32 CDAB | 4-byte payload (`Byte Count = 0x04`) |
 
 A request such as:
@@ -183,6 +205,7 @@ The proxy validates incoming RTU frames before responding:
 - Requests for another slave address are ignored.
 - Responses preserve the requested register quantity.
 - Inepro PRO2 FLOAT32 values use CDAB word order by default for Delta compatibility.
+- The experimental current encoding can be changed with `inepro_500c_encoding` without changing the requested response size.
 - Janitza B23 values use the documented scaled integer representation.
 
 Example Delta PRO2 request for L1 current:
@@ -212,7 +235,7 @@ The meter profile shown by the UI is read from the same runtime `METER_MODEL` va
 
 ## Tests and CI
 
-The repository contains tests for meter-model mapping, Modbus encoding/protocol behaviour, power offsets, profile dispatch, configuration wiring, and web profile rendering/API output. Delta PRO2 regression tests verify that the key FLOAT32 registers return exactly two registers, `Byte Count = 0x04`, CDAB payloads, and a 9-byte RTU frame with a valid CRC.
+The repository contains tests for meter-model mapping, Modbus encoding/protocol behaviour, power offsets, profile dispatch, configuration wiring, and web profile rendering/API output. Delta PRO2 regression tests verify that the key registers return exactly two registers, `Byte Count = 0x04`, the selected current encoding, CDAB FLOAT32 for voltage/power where configured, and a 9-byte RTU frame with a valid CRC.
 
 GitHub Actions runs `pytest -q` automatically on every pull request and on pushes to `main`.
 
@@ -240,10 +263,11 @@ Check, in order:
 6. The Wallbox is actually sending Modbus requests.
 7. The proxy returns a response with a valid CRC.
 8. Delta PRO2 phase reads return `Byte Count = 0x04` for the requested two registers.
-9. Delta PRO2 FLOAT32 responses use CDAB word order.
-10. Janitza responses use B23 scaled integers rather than FLOAT32.
-11. Restart the Wallbox and capture the initial request sequence; look for identification/validation reads before relying only on the recurring measurement poll.
-12. The correct add-on is running and listening on host port `502`.
+9. Select the current encoding under `inepro_500c_encoding` and restart the add-on between hardware tests.
+10. Delta PRO2 FLOAT32 voltage/power responses use the configured word order.
+11. Janitza responses use B23 scaled integers rather than FLOAT32.
+12. Restart the Wallbox and capture the initial request sequence; look for identification/validation reads before relying only on the recurring measurement poll.
+13. The correct add-on is running and listening on host port `502`.
 
 A healthy Delta PRO2 exchange should look like:
 
