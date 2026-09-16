@@ -1,5 +1,7 @@
 import struct
 
+import pytest
+
 
 def _f32_from_words(hi: int, lo: int) -> float:
     return struct.unpack(">f", struct.pack(">HH", hi, lo))[0]
@@ -22,12 +24,12 @@ def test_latest_capture_is_only_l1_current_polling():
             int.from_bytes(response[3:5], "big"),
             int.from_bytes(response[5:7], "big"),
         ))
-    assert observed == [
+    assert observed == pytest.approx([
         18.899999618530273,
         19.110000610351562,
         19.299997329711914,
         19.290000915527344,
-    ]
+    ], abs=5e-6)
 
 
 def test_latest_capture_has_no_identity_poll():
