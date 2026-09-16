@@ -1,5 +1,5 @@
 name: BMW Wallbox Proxy (Multi-Meter)
-version: "0.2.33"
+version: "0.2.34"
 slug: bmw_wallboxproxy_multimeter
 description: Emulate Inepro PRO380/PRO2 or Janitza B21/B23 Modbus meters for BMW wallboxes.
 arch:
@@ -31,6 +31,9 @@ options:
   test_voltage_v: 230.0
   test_frequency_hz: 50.0
   test_power_factor: 1.0
+  # Raw RTU response frame override, without the two-byte CRC. Test-mode only.
+  test_raw_response_enabled: false
+  test_raw_response: ""
   transport_mode: rtu_over_tcp
   # FLOAT32 word order; independent from the explicit Int32 current encoding below.
   float_word_order: cdab
@@ -60,6 +63,8 @@ schema:
   test_voltage_v: "float"
   test_frequency_hz: "float"
   test_power_factor: "float"
+  test_raw_response_enabled: "bool"
+  test_raw_response: "str?"
   transport_mode: "list(rtu_over_tcp|modbus_tcp)"
   float_word_order: "list(abcd|cdab)"
   inepro_500c_encoding: "list(int32_ma_cdab|int32_ma_abcd|float32_cdab|float32_abcd)"
