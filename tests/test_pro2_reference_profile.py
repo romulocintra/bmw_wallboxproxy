@@ -40,7 +40,7 @@ def test_pro2_register_map_contains_single_phase_reference_registers(monkeypatch
         "freq": 50.0, "p_total": 4.443, "p1": 4.443,
         "p2": 0.0, "p3": 0.0, "q_total": 0.0,
         "s_total": 4.443, "pf_total": 1.0,
-        "combination_code": 3, "modbus_id": 1, "baud": 9600,
+        "modbus_id": 1, "baud": 9600,
         "parity": 1, "lcd_cycle": 10, "tariff": 1,
         "s0_rate": 1000.0, "e_day_counter": 0.0,
     }
@@ -68,12 +68,13 @@ def test_pro2_export_uses_reverse_direction_and_quadrant():
         "freq": 50.0, "p_total": -1.84, "p1": -1.84,
         "p2": 0.0, "p3": 0.0, "q_total": 0.0,
         "s_total": 1.84, "pf_total": -1.0,
-        "combination_code": 3, "modbus_id": 1, "baud": 9600,
+        "modbus_id": 1, "baud": 9600,
         "parity": 1, "lcd_cycle": 10, "tariff": 1,
         "s0_rate": 1000.0, "e_day_counter": 0.0,
     }
     regs = meter_models.build_inepro_pro2(values, "abcd")
 
+    assert regs[0x400F] == 3
     assert regs[0x4012] == 0x3152
     assert regs[0x4017] == 4
     assert regs[0x4018] == 4
