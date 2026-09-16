@@ -1,3 +1,12 @@
+## 0.2.33
+
+- Add custom deterministic test values to the Home Assistant add-on configuration.
+- Allow a fixed test current with `test_current_a`; when left empty, the existing current sequence is preserved.
+- Allow custom test voltage, frequency and power factor with `test_voltage_v`, `test_frequency_hz` and `test_power_factor`.
+- Generate coherent active, reactive and apparent power values from the configured test voltage/current/power factor.
+- Keep the feature available across all supported meter profiles while preserving the existing PRO2 single-phase collapse behaviour.
+- Add regression coverage for custom values and the unchanged default test sequence.
+
 ## 0.2.32
 
 - Make the Delta Electronics Inepro PRO2 current encoding configurable from the Home Assistant add-on configuration.

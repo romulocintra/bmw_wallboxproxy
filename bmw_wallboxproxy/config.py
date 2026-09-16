@@ -131,6 +131,11 @@ MODBUS_INEPRO_500C_ENCODING = _env_choice(
 MODBUS_REGISTER_ALIAS_MODE = _env_choice("MODBUS_REGISTER_ALIAS_MODE", "exact", {"exact", "alias_minus_1", "alias_plus_1", "alias_both"})
 METER_MODEL = _env_choice("METER_MODEL", "inepro_pro380", {"inepro_pro380", "inepro_pro2", "janitza_b23", "janitza_b21"})
 TEST_MODE = _env_bool("TEST_MODE", False)
+# Optional fixed test values. When TEST_CURRENT_A is unset, the existing current sequence is used.
+TEST_CURRENT_A: Optional[float] = _env_float_any("TEST_CURRENT_A")
+TEST_VOLTAGE_V = _env_float("TEST_VOLTAGE_V", 230.0)
+TEST_FREQUENCY_HZ = _env_float("TEST_FREQUENCY_HZ", 50.0)
+TEST_POWER_FACTOR = min(1.0, _env_float("TEST_POWER_FACTOR", 1.0))
 ENTITIES = _load_entity_settings()
 
 

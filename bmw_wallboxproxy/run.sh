@@ -16,6 +16,10 @@ export HA_VERIFY_TLS=false
 export HA_USE_SUPERVISOR=true
 export METER_MODEL="$(bashio::config 'meter_model')"
 export TEST_MODE="$(bashio::config 'test_mode')"
+export TEST_CURRENT_A="$(bashio::config 'test_current_a')"
+export TEST_VOLTAGE_V="$(bashio::config 'test_voltage_v')"
+export TEST_FREQUENCY_HZ="$(bashio::config 'test_frequency_hz')"
+export TEST_POWER_FACTOR="$(bashio::config 'test_power_factor')"
 export MODBUS_TRANSPORT_MODE="$(bashio::config 'transport_mode')"
 export MODBUS_FLOAT_WORD_ORDER="$(bashio::config 'float_word_order')"
 export MODBUS_INEPRO_500C_ENCODING="$(bashio::config 'inepro_500c_encoding')"
@@ -40,6 +44,7 @@ bashio::log.info "Web UI is served over Home Assistant ingress on internal HTTP 
 bashio::log.info "Runtime settings are sourced from the Home Assistant add-on configuration"
 bashio::log.info "Meter model: ${METER_MODEL}"
 bashio::log.info "Test mode: ${TEST_MODE}"
+bashio::log.info "Custom test current: ${TEST_CURRENT_A:-sequence} A"
 bashio::log.info "Inepro 0x500C/current encoding: ${MODBUS_INEPRO_500C_ENCODING}"
 
 exec /opt/venv/bin/python /app/app.py
