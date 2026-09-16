@@ -47,7 +47,7 @@ def _inepro_energy_values(values: dict) -> dict[int, float]:
     """Build the non-starred PRO2 energy registers from forward/reverse data."""
     forward = _value(values, "e_import")
     reverse = _value(values, "e_export")
-    combo = int(values.get("combination_code", 1))
+    combo = int(values.get("combination_code", 3))
     if combo == 1:
         total = forward
     elif combo == 4:
@@ -143,7 +143,7 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     for addr in (0x4005, 0x4007, 0x4009):
         _put_float(regs, enc, addr, float(identity[addr]))
 
-    combo = int(values.get("combination_code", 1))
+    combo = int(values.get("combination_code", 3))
     tariff = int(values.get("tariff", 1))
     current = _value(values, "p_total")
     reverse = current < 0
