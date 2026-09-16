@@ -15,14 +15,14 @@ The Home Assistant add-on configuration is the source of truth. After changing o
 | Option | Type | Default | Purpose |
 |---|---|---|---|
 | `test_mode` | bool | `false` | Enables deterministic compatibility-testing values. |
-| `test_current_a` | optional float | empty | Fixed test current. Leave empty to keep the built-in test-current sequence. |
+| `test_current_a` | string containing a float or empty | empty | Fixed test current. Leave empty to keep the built-in test-current sequence. |
 | `test_voltage_v` | float | `230.0` | Test voltage. |
 | `test_frequency_hz` | float | `50.0` | Test grid frequency. |
 | `test_power_factor` | float | `1.0` | Test power factor, limited to 1.0. |
 | `test_raw_response_enabled` | bool | `false` | Replaces generated RTU read responses with the configured raw response while test mode is being used. |
 | `test_raw_response` | string | empty | Raw RTU response body in hexadecimal, **without the two-byte CRC**. Example: `01 03 04 00 00 4B 78`. |
 
-The raw response override is intended for byte-level BMW Wallbox compatibility experiments. It bypasses the normal register encoding for RTU read responses and recalculates the Modbus CRC automatically. The configured response must be a valid read response (`03` or `04`) and its byte count must match the supplied data. It is ignored when `test_raw_response_enabled` is false.
+The raw response override is intended for byte-level BMW Wallbox compatibility experiments. It bypasses the normal register encoding for RTU read responses and recalculates the Modbus CRC automatically. The configured response must be a valid read response (`03` or `04`) and its byte count must match the supplied data. It is ignored unless both `test_mode` and `test_raw_response_enabled` are true.
 
 For example, to test the two common byte/word layouts for a 19.32 A Int32 value:
 
