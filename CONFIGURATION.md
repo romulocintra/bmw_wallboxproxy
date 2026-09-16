@@ -6,7 +6,7 @@ The Home Assistant add-on configuration is the source of truth. After changing o
 
 | Option | Values | Default | Purpose |
 |---|---|---|---|
-| `meter_model` | `inepro_pro380`, `inepro_pro2`, `janitza_b23` | `inepro_pro380` | Selects the virtual meter register map and encoding. Must match the meter selected in the BMW Installation App. |
+| `meter_model` | `inepro_pro380`, `inepro_pro2`, `janitza_b23`, `janitza_b21` | `inepro_pro380` | Selects the virtual meter register map and encoding. Must match the meter selected in the BMW Installation App. |
 
 `inepro_pro380` and `inepro_pro2` use IEEE-754 FLOAT32 values. `janitza_b23` uses the documented B23 scaled representation. The profile is independent from the transport settings below.
 
@@ -15,15 +15,43 @@ The Home Assistant add-on configuration is the source of truth. After changing o
 | Option | Values | Default | Purpose |
 |---|---|---|---|
 | `transport_mode` | `rtu_over_tcp`, `modbus_tcp` | `rtu_over_tcp` | Selects the framing expected by the proxy. Use `rtu_over_tcp` with a transparent RS485/TCP bridge carrying raw RTU frames. |
-| `float_word_order` | `abcd`, `cdab` | `abcd` | FLOAT32 word order used by Inepro profiles. `abcd` is the documented/default order for PRO380/PRO2. |
+| `float_word_order` | `abcd`, `cdab` | `cdab` in the add-on | FLOAT32 word order used by Inepro profiles. CDAB is the add-on default for Delta Electronics compatibility. |
+| `inepro_500c_encoding` | `int32_ma_cdab`, `float32_cdab`, `float32_abcd` | `int32_ma_cdab` | Experimental encoding for the PRO2 current registers `0x500C`, `0x500E` and `0x5010`. |
 | `register_alias_mode` | `exact`, `alias_minus_1`, `alias_plus_1`, `alias_both` | `exact` | Legacy register-address compatibility mode for Inepro profiles. Janitza B23 does not use Inepro aliases. |
+
+### Delta PRO2 current encoding
+
+For `meter_model: inepro_pro2`, `inepro_500c_encoding` is intended to make hardware compatibility experiments possible without modifying the proxy code.
+
+| Value | Encoding | Example for 19.5 A |
+|---|---|---|
+| `int32_ma_cdab` | Signed Int32 milliamps, then CDAB word swap | `19.5 A → 19500 → 4C 2C 00 00` |
+| `float32_cdab` | IEEE-754 FLOAT32, CDAB word swap | `19.5 A → 00 00 41 9C` |
+| `float32_abcd` | IEEE-754 FLOAT32, ABCD | `19.5 A → 41 9C A3 D7` |
+
+The selected mode applies to `0x500C` (L1), `0x500E` (L2) and `0x5010` (L3). It does not change the Modbus response size: a request for two registers still receives `Byte Count = 0x04` and a 9-byte RTU response including CRC.
+
+The voltage register `0x5000` and active-power register `0x5012` remain FLOAT32 and use `float_word_order`.
+
+For the first Delta hardware test, use:
+
+```yaml
+meter_model: inepro_pro2
+transport_mode: rtu_over_tcp
+float_word_order: cdab
+inepro_500c_encoding: int32_ma_cdab
+register_alias_mode: exact
+```
+
+After changing the encoding, save the add-on configuration and restart it. Capture the Modbus log and check whether the Wallbox stops repeating `0x500C` and proceeds to subsequent reads such as `0x5000` or `0x5012`.
 
 For a Waveshare transparent bridge, the normal combination is:
 
 ```yaml
 meter_model: inepro_pro2
 transport_mode: rtu_over_tcp
-float_word_order: abcd
+float_word_order: cdab
+inepro_500c_encoding: int32_ma_cdab
 register_alias_mode: exact
 ```
 
@@ -79,7 +107,8 @@ L2/L3 entities are not required for PRO2. They are deliberately not treated as r
 ha_token: ""
 meter_model: inepro_pro2
 transport_mode: rtu_over_tcp
-float_word_order: abcd
+float_word_order: cdab
+inepro_500c_encoding: int32_ma_cdab
 register_alias_mode: exact
 u1_entity: sensor.inverter_grid_l1_voltage
 u2_entity: ""
