@@ -128,17 +128,22 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
 
 
 def _apply_inepro_current_encoding(regs: Dict[int, int], values: dict) -> Dict[int, int]:
-    """Apply the selectable Delta current encoding to the PRO2 current block."""
+    """Apply explicit current encoding to the PRO2 32-bit current registers."""
     mode = config.MODBUS_INEPRO_500C_ENCODING
     result = dict(regs)
     current_addresses = ((0x500C, "i1"), (0x500E, "i2"), (0x5010, "i3"))
 
     for addr, name in current_addresses:
         value = float(values.get(name, 0.0))
-        if mode == "int32_ma_cdab":
+        if mode in ("int32_ma_cdab", "int32_ma_abcd"):
             raw = max(-0x80000000, min(int(round(value * 1000.0)), 0x7FFFFFFF)) & 0xFFFFFFFF
-            result[addr] = raw & 0xFFFF
-            result[addr + 1] = (raw >> 16) & 0xFFFF
+            abcd = raw.to_bytes(4, "big")
+            if mode == "int32_ma_cdab":
+                payload = abcd[2:4] + abcd[0:2]
+            else:
+                payload = abcd
+            result[addr] = int.from_bytes(payload[0:2], "big")
+            result[addr + 1] = int.from_bytes(payload[2:4], "big")
         elif mode == "float32_cdab":
             hi, lo = float_to_words(to_float32_safe(value), "cdab")
             result[addr], result[addr + 1] = hi, lo
@@ -168,11 +173,13 @@ def _apply_legacy_aliases(regs: Dict[int, int], alias_mode: str) -> Dict[int, in
             continue
         hi, lo = regs[addr], regs[addr + 1]
         if alias_mode in ("alias_minus_1", "alias_both"):
-            aliased[addr - 1] = hi
-            aliased[addr] = lo
+            # Never overwrite a canonical register while adding a legacy alias.
+            aliased.setdefault(addr - 1, hi)
+            aliased.setdefault(addr, lo)
         if alias_mode in ("alias_plus_1", "alias_both"):
-            aliased[addr + 1] = hi
-            aliased[addr + 2] = lo
+            # Never overwrite a canonical register while adding a legacy alias.
+            aliased.setdefault(addr + 1, hi)
+            aliased.setdefault(addr + 2, lo)
     return aliased
 
 
