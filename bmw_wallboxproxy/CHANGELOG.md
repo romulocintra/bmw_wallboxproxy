@@ -1,3 +1,11 @@
+## 0.2.31
+
+- Fix the Delta Electronics / Inepro PRO2 response to two-register FLOAT32 reads at `0x5000`, `0x500C`, `0x500E`, `0x5010` and `0x5012`.
+- Preserve the requested quantity so a two-register read returns `Byte Count = 0x04`, 4 payload bytes and exactly 9 RTU bytes including CRC.
+- Remove the previous three-phase expansion that returned `Byte Count = 0x0C` for a two-register request and could cause the Delta wallbox to reject and repeat the poll.
+- Document CDAB word-swapped FLOAT32 encoding for the Delta compatibility configuration.
+- Add regression tests for exact response size, CDAB payloads and CRC validation.
+
 ## 0.2.24
 
 - Add first-class Janitza B21 312-10J single-phase support using the B-series 0x5Bxx register map.
