@@ -20,7 +20,8 @@ def _f32(regs, addr):
 def _pro2_supported_word_addresses():
     single = {
         0x4002, 0x4003, 0x4004, 0x400B, 0x400F, 0x4010, 0x4011,
-        0x4012, 0x4015, 0x4016, 0x4017, 0x6048,
+        0x4012, 0x4013, 0x4014, 0x4015, 0x4016, 0x4017, 0x4018,
+        0x4019, 0x401A, 0x401F, 0x6048,
     }
     pairs = {
         0x4000, 0x4005, 0x4007, 0x4009, 0x400D, 0x401B, 0x401D,
@@ -74,8 +75,15 @@ def test_pro2_documented_defaults_and_dynamic_direction():
     assert forward[0x400F] == 1
     assert forward[0x4010] == 10
     assert forward[0x4011] == 1
-    assert forward[0x4012] == ord("F")
-    assert reverse[0x4012] == ord("R")
+    assert forward[0x4012] == 0x3146  # ASCII "1F"
+    assert reverse[0x4012] == 0x3152  # ASCII "1R"
+    assert forward[0x4013] == 0x2020
+    assert forward[0x4014] == 0x2020
+    assert forward[0x4015] == 0
+    assert forward[0x4017] == 1
+    assert forward[0x4018] == 1
+    assert reverse[0x4017] == 4
+    assert reverse[0x4018] == 4
     assert _f32(forward, 0x6000) == 10.0
 
 
