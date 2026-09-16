@@ -2,6 +2,7 @@ from typing import Dict
 
 import config
 from meter_models import build_register_map as build_model_register_map
+from modbus_codec import float_to_words, to_float32_safe
 from pro2_state import get_register, snapshot as pro2_snapshot, update_day_counter
 from state import (
     get_float_word_order,
@@ -129,21 +130,22 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
 def _apply_inepro_current_encoding(regs: Dict[int, int], values: dict) -> Dict[int, int]:
     """Apply the selectable Delta current encoding to the PRO2 current block."""
     mode = config.MODBUS_INEPRO_500C_ENCODING
-    if mode == "float32_cdab":
-        return regs
-
-    current_addresses = ((0x500C, "i1"), (0x500E, "i2"), (0x5010, "i3"))
     result = dict(regs)
+    current_addresses = ((0x500C, "i1"), (0x500E, "i2"), (0x5010, "i3"))
+
     for addr, name in current_addresses:
         value = float(values.get(name, 0.0))
         if mode == "int32_ma_cdab":
             raw = max(-0x80000000, min(int(round(value * 1000.0)), 0x7FFFFFFF)) & 0xFFFFFFFF
             result[addr] = raw & 0xFFFF
             result[addr + 1] = (raw >> 16) & 0xFFFF
+        elif mode == "float32_cdab":
+            hi, lo = float_to_words(to_float32_safe(value), "cdab")
+            result[addr], result[addr + 1] = hi, lo
         elif mode == "float32_abcd":
-            from modbus_codec import float_to_words, to_float32_safe
             hi, lo = float_to_words(to_float32_safe(value), "abcd")
             result[addr], result[addr + 1] = hi, lo
+
     return result
 
 
