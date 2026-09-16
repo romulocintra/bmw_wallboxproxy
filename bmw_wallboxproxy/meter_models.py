@@ -84,11 +84,17 @@ def _inepro_energy_values(values: dict) -> dict[int, float]:
 
 def _inepro_pro2_measurement_values(values: dict) -> dict[int, float]:
     return {
+        # PRO2/PRO380 voltage block: L1/L2/L3 at 0x5000/0x5002/0x5004.
         0x5000: _value(values, "voltage_avg"),
         0x5002: _value(values, "u1"),
+        0x5004: _value(values, "u2"),
+        0x5006: _value(values, "u3"),
         0x5008: _value(values, "freq"),
         0x500A: _value(values, "current_total"),
+        # PRO2/PRO380 current block: L1/L2/L3 at 0x500C/0x500E/0x5010.
         0x500C: _value(values, "i1"),
+        0x500E: _value(values, "i2"),
+        0x5010: _value(values, "i3"),
         0x5012: _value(values, "p_total"),
         0x501A: _value(values, "q_total"),
         0x5022: _value(values, "s_total"),
@@ -142,7 +148,7 @@ def build_inepro_pro2(values: dict, word_order: str) -> Dict[int, int]:
     tariff = int(values.get("tariff", 1))
     current = _value(values, "p_total")
     reverse = current < 0
-    direction_word = 0x3152 if reverse else 0x3146  # ASCII "1R" / "1F"
+    direction_word = 0x3152 if reverse else 0x3146
     quadrant = 4 if reverse else 1
 
     for addr, value in (
