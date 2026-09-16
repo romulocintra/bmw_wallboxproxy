@@ -71,6 +71,18 @@ def test_delta_current_l1_500c_float32_cdab(monkeypatch):
     assert response[3:7] == bytes.fromhex("00 00 41 A0")
 
 
+def test_delta_current_l1_500c_float32_cdab_is_independent_of_global_word_order(monkeypatch):
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_cdab")
+    monkeypatch.setattr(config, "MODBUS_FLOAT_WORD_ORDER", "abcd")
+    values = {"i1": 20.0}
+    _delta_regs(monkeypatch, values)
+
+    response = dr_client.handle_rtu_request(_request(0x500C, 2))
+
+    _assert_exact_float_response(response, 20.0)
+    assert response[3:7] == bytes.fromhex("00 00 41 A0")
+
+
 def test_delta_current_l1_500c_float32_abcd(monkeypatch):
     monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     values = {"i1": 20.0}
