@@ -1,3 +1,9 @@
+## 0.2.37
+
+- Fix the PRO2 register-map default combination code to `0x0003`, matching the L1-only reference profile.
+- Keep explicit combination-code overrides supported for compatibility testing.
+- Update PRO2 regression tests to verify the default combination code instead of requiring callers to provide it explicitly.
+
 ## 0.2.36
 
 - Align the PRO2 identity defaults with the supplied single-phase L1 reference profile.
