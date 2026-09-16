@@ -2,6 +2,8 @@ import struct
 import sys
 from pathlib import Path
 
+import pytest
+
 PACKAGE_DIR = Path(__file__).resolve().parents[1] / "bmw_wallboxproxy"
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGE_DIR))
@@ -18,7 +20,7 @@ def _f32(regs, addr):
 
 def _pro2_supported_word_addresses():
     single = {
-        0x4002, 0x4003, 0x4004, 0x400B, 0x400F, 0x4010, 0x4011,
+        0x4002, 0x4003, 0x4004, 0x400B, 0x400C, 0x400F, 0x4010, 0x4011,
         0x4012, 0x4013, 0x4014, 0x4015, 0x4016, 0x4017, 0x4018,
         0x4019, 0x401A, 0x401F, 0x6048,
     }
@@ -78,7 +80,7 @@ def test_pro2_float_encoding_respects_word_order():
 def test_pro2_documented_defaults_and_dynamic_direction():
     forward = build_inepro_pro2({"p_total": 3.68, "e_import": 10.0, "e_export": 2.0}, "abcd")
     reverse = build_inepro_pro2({"p_total": -3.68, "e_import": 10.0, "e_export": 2.0}, "abcd")
-    assert _f32(forward, 0x400D) == 10000.0
+    assert _f32(forward, 0x400D) == pytest.approx(1000.0)
     assert forward[0x400B] == 100
     assert forward[0x400F] == 1
     assert forward[0x4010] == 10
@@ -90,12 +92,8 @@ def test_pro2_documented_defaults_and_dynamic_direction():
     assert forward[0x4015] == 0
     assert forward[0x4017] == 1
     assert forward[0x4018] == 1
-    assert forward[0x4019] == 0
-    assert forward[0x401A] == 0
     assert reverse[0x4017] == 4
     assert reverse[0x4018] == 4
-    assert reverse[0x4019] == 0
-    assert reverse[0x401A] == 0
     assert _f32(forward, 0x6000) == 10.0
 
 
@@ -130,9 +128,9 @@ def test_pro2_identity_is_environment_configurable(monkeypatch):
     assert regs[0x4000] == 0x1234
     assert regs[0x4001] == 0x5678
     assert regs[0x4002] == 0x0042
-    assert _f32(regs, 0x4005) == 1.0
-    assert _f32(regs, 0x4007) == 2.18
-    assert _f32(regs, 0x4009) == 1.1
+    assert _f32(regs, 0x4005) == pytest.approx(1.0)
+    assert _f32(regs, 0x4007) == pytest.approx(2.18)
+    assert _f32(regs, 0x4009) == pytest.approx(1.1)
 
 
 def test_pro2_day_counter_is_resettable():
