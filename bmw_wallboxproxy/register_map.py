@@ -124,7 +124,12 @@ def _build_model_values(values: dict, model: str, test_mode: bool = False) -> di
 
 
 def _apply_inepro_current_encoding(regs: Dict[int, int], values: dict) -> Dict[int, int]:
+    # The standard PRO380 map used by MBMD represents currents as IEEE-754
+    # float32 values in 0x500C/0x500E/0x5010. Keep the legacy encodings as an
+    # opt-in compatibility mode for installations that explicitly relied on it.
     mode = config.MODBUS_INEPRO_500C_ENCODING
+    if mode == "float32_abcd":
+        return regs
     result = dict(regs)
     current_addresses = ((0x500C, "i1"), (0x500E, "i2"), (0x5010, "i3"))
 
@@ -138,9 +143,6 @@ def _apply_inepro_current_encoding(regs: Dict[int, int], values: dict) -> Dict[i
             result[addr + 1] = int.from_bytes(payload[2:4], "big")
         elif mode == "float32_cdab":
             hi, lo = float_to_words(to_float32_safe(value), "cdab")
-            result[addr], result[addr + 1] = hi, lo
-        elif mode == "float32_abcd":
-            hi, lo = float_to_words(to_float32_safe(value), "abcd")
             result[addr], result[addr + 1] = hi, lo
 
     return result

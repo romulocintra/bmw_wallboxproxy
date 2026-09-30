@@ -122,16 +122,17 @@ MODBUS_TCP_KEEPALIVE_COUNT = _env_int("MODBUS_TCP_KEEPALIVE_COUNT", 3)
 HA_VERIFY_TLS = _env_bool("HA_VERIFY_TLS", True)
 MODBUS_TRANSPORT_MODE = _env_choice("MODBUS_TRANSPORT_MODE", "modbus_tcp", {"rtu_over_tcp", "modbus_tcp"})
 MODBUS_FLOAT_WORD_ORDER = _env_choice("MODBUS_FLOAT_WORD_ORDER", "abcd", {"abcd", "cdab"})
+# Standard PRO380/MBMD representation is IEEE-754 float32. Legacy current
+# encodings remain available for existing deployments but are not the default.
 MODBUS_INEPRO_500C_ENCODING = _env_choice(
     "MODBUS_INEPRO_500C_ENCODING",
-    "int32_ma_cdab",
+    "float32_abcd",
     {"int32_ma_cdab", "int32_ma_abcd", "float32_cdab", "float32_abcd"},
 )
 CUSTOM_COMBINATION_CODE = _env_str("CUSTOM_COMBINATION_CODE", "")
 MODBUS_REGISTER_ALIAS_MODE = _env_choice("MODBUS_REGISTER_ALIAS_MODE", "exact", {"exact", "alias_minus_1", "alias_plus_1", "alias_both"})
 METER_MODEL = _env_choice("METER_MODEL", "inepro_pro380", {"inepro_pro380", "inepro_pro2", "janitza_b23", "janitza_b21"})
 TEST_MODE = _env_bool("TEST_MODE", False)
-# Optional fixed test values. When TEST_CURRENT_A is unset, the existing current sequence is used.
 TEST_CURRENT_A: Optional[float] = _env_float_any("TEST_CURRENT_A")
 TEST_VOLTAGE_V = _env_float("TEST_VOLTAGE_V", 230.0)
 TEST_FREQUENCY_HZ = _env_float("TEST_FREQUENCY_HZ", 50.0)

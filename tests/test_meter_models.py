@@ -3,6 +3,8 @@ import struct
 import sys
 from pathlib import Path
 
+import pytest
+
 PACKAGE_DIR = Path(__file__).resolve().parents[1] / "bmw_wallboxproxy"
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGE_DIR))
@@ -23,29 +25,51 @@ def _f32(regs, addr):
     return struct.unpack(">f", struct.pack(">HH", regs[addr], regs[addr + 1]))[0]
 
 
-def test_inepro_pro380_documented_measurement_encoding():
+def test_inepro_pro380_matches_mbmd_float32_register_map():
     regs = build_inepro_pro380({
         "voltage_avg": 230.0, "u1": 230.1, "u2": 229.9, "u3": 230.2,
         "freq": 50.0, "current_total": 16.21, "i1": 16.21, "i2": 0.0, "i3": 0.0,
-        "p_total": 3.7285, "p1": 3.7285, "q_total": 0.0, "s_total": 3.7285, "pf_total": 1.0,
+        "p_total": 3.7285, "p1": 3.7285, "p2": 0.0, "p3": 0.0,
+        "q_total": 0.0, "s_total": 3.7285, "pf_total": 1.0,
     }, "abcd")
-    assert math.isclose(_f32(regs, 0x5000), 230.0, rel_tol=1e-6)
-    assert math.isclose(_f32(regs, 0x500C), 16.21, rel_tol=1e-6)
+
+    # MBMD reads these PRO380 registers as holding-register IEEE-754 float32,
+    # two 16-bit registers per value.
+    expected = {
+        0x5000: 230.0,
+        0x5002: 230.1,
+        0x5004: 229.9,
+        0x5006: 230.2,
+        0x5008: 50.0,
+        0x500A: 16.21,
+        0x500C: 16.21,
+        0x5010: 0.0,
+        0x5012: 3.7285,
+        0x5014: 3.7285,
+        0x502A: 1.0,
+    }
+    for addr, value in expected.items():
+        assert math.isclose(_f32(regs, addr), value, rel_tol=1e-6, abs_tol=1e-6)
+
+
+def test_inepro_pro380_energy_registers_match_mbmd_map():
+    regs = build_inepro_pro380({
+        "e_total": 1234.5, "e_import": 1000.25, "e_export": 234.25,
+    }, "abcd")
+
+    for addr, value in ((0x6000, 1234.5), (0x600C, 1000.25), (0x6018, 234.25)):
+        assert math.isclose(_f32(regs, addr), value, rel_tol=1e-6)
+
+
+def test_inepro_pro380_power_is_exposed_without_extra_scaling():
+    # MBMD applies the 0.001 scaling when decoding the PRO380 power
+    # measurement. The wire representation itself remains the meter's float32.
+    regs = build_inepro_pro380({"p_total": 3.7285}, "abcd")
     assert math.isclose(_f32(regs, 0x5012), 3.7285, rel_tol=1e-6)
-    assert math.isclose(_f32(regs, 0x502A), 1.0, rel_tol=1e-6)
-
-
-def test_inepro_pro380_energy_registers_match_documented_addresses():
-    regs = build_inepro_pro380({"e_total": 1234.5, "e_import": 1000.25, "e_export": 234.25}, "abcd")
-    assert math.isclose(_f32(regs, 0x6000), 1234.5, rel_tol=1e-6)
-    assert math.isclose(_f32(regs, 0x600C), 1000.25, rel_tol=1e-6)
-    assert math.isclose(_f32(regs, 0x6018), 234.25, rel_tol=1e-6)
-    assert regs[0x6048] == 0
-    assert math.isclose(_f32(regs, 0x6049), 0.0, abs_tol=1e-9)
 
 
 def test_inepro_pro2_identity_and_default_configuration():
-    regs = build_inepro_pro2({}, "abcd")
+    regs = build_inepro_pro2({})
     assert regs[0x4003] == 1
     assert regs[0x4004] == 9600
     assert regs[0x400B] == 100
@@ -68,7 +92,7 @@ def test_inepro_pro2_identity_and_default_configuration():
 
 
 def test_inepro_pro2_includes_documented_single_phase_zero_registers():
-    regs = build_inepro_pro2({"u1": 230.0, "i1": 16.21, "p_total": 3.7285}, "abcd")
+    regs = build_inepro_pro2({"u1": 230.0, "i1": 16.21, "p_total": 3.7285})
     for addr in (0x400C, 0x4013, 0x4014, 0x4018, 0x4019, 0x401A, 0x401F,
                  0x5004, 0x5006, 0x500E, 0x5010):
         assert addr in regs
@@ -77,8 +101,10 @@ def test_inepro_pro2_includes_documented_single_phase_zero_registers():
 
 
 def test_inepro_pro2_measurements_use_physical_register_types():
-    regs = build_inepro_pro2({"voltage_avg": 230.0, "u1": 230.0, "freq": 50.0, "current_total": 16.21,
-                              "i1": 16.21, "p_total": 3.7285, "q_total": 0.0, "s_total": 3.7285, "pf_total": 1.0}, "abcd")
+    regs = build_inepro_pro2({
+        "voltage_avg": 230.0, "u1": 230.0, "freq": 50.0, "current_total": 16.21,
+        "i1": 16.21, "p_total": 3.7285, "q_total": 0.0, "s_total": 3.7285, "pf_total": 1.0,
+    }, "abcd")
     assert math.isclose(_f32(regs, 0x5000), 230.0, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x5002), 230.0, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x5008), 50.0, rel_tol=1e-6)
@@ -132,6 +158,3 @@ def test_janitza_b23_zeroes_unused_phases_for_single_phase_installation():
     assert _u32(regs, 0x5B10) == 0
     assert _u32(regs, 0x5B18) == 0
     assert _u32(regs, 0x5B1A) == 0
-
-
-import pytest

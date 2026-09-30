@@ -45,9 +45,10 @@ def test_register_map_preserves_pro380_float_units_and_power_offset(monkeypatch)
     assert math.isclose(values["p_total"], 3.8285)
     assert math.isclose(_f32(regs, 0x5012), 3.8285, rel_tol=1e-6)
     assert math.isclose(_f32(regs, 0x5014), 3.233333333333333, rel_tol=1e-6)
+    assert math.isclose(_f32(regs, 0x500C), 16.21, rel_tol=1e-6)
 
 
-def test_register_map_pro2_forces_single_phase_and_uses_l1_values(monkeypatch):
+def test_pro2_forces_single_phase_and_uses_l1_values(monkeypatch):
     _set_values(monkeypatch, "inepro_pro2")
     monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
     regs = register_map.get_register_map()
