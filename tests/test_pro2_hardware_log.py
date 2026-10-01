@@ -1,4 +1,5 @@
 import struct
+import pytest
 import sys
 from pathlib import Path
 
@@ -54,3 +55,25 @@ def test_capture_32a_response_is_exact_float32_abcd(monkeypatch):
     assert regs[0x500C] == 0x4200
     assert regs[0x500D] == 0x0000
     assert _f32(regs, 0x500C) == 32.0
+
+def test_live_capture_2026_09_16_500c_responses_are_float32_abcd():
+    # Captured from the BMW Wallbox <-> proxy exchange on 2026-09-16.
+    captured = [
+        ("01 03 04 40 cd 1e b8 77 de", 6.41),
+        ("01 03 04 40 c6 66 66 a4 44", 6.20),
+        ("01 03 04 40 c4 cc cd 3a 9b", 6.15),
+        ("01 03 04 40 c0 51 ec d3 d2", 6.01),
+        ("01 03 04 40 be 14 7b c0 f4", 5.94),
+        ("01 03 04 40 b8 a3 d7 57 78", 5.77),
+        ("01 03 04 40 bb 85 1f bc 8e", 5.86),
+        ("01 03 04 40 b0 f5 c3 e9 15", 5.53),
+        ("01 03 04 40 b2 3d 71 9f 60", 5.57),
+        ("01 03 04 40 bd c2 8f 6f 13", 5.93),
+        ("01 03 04 40 ca e1 48 87 ab", 6.34),
+    ]
+    for frame_hex, expected in captured:
+        frame = bytes.fromhex(frame_hex)
+        assert len(frame) == 9
+        assert frame[:3] == bytes.fromhex("01 03 04")
+        assert append_crc(frame[:-2]) == frame
+        assert struct.unpack(">f", frame[3:7])[0] == pytest.approx(expected, abs=0.01)
