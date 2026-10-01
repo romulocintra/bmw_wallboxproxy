@@ -1,3 +1,9 @@
+## 0.2.40
+
+- Fix `inepro_500c_encoding` so `float32_abcd` and `float32_cdab` explicitly control the PRO2 `0x500C` current register pair.
+- Ensure the dedicated `0x500C` encoding overrides the global `float_word_order` setting.
+- Add regression coverage for mixed global/current encoding configurations.
+
 ## 0.2.39
 
 - Add regression coverage from the supplied 2026-09-16 BMW Wallbox PRO2 raw TCP capture.
