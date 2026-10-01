@@ -77,3 +77,35 @@ def test_live_capture_2026_09_16_500c_responses_are_float32_abcd():
         assert frame[:3] == bytes.fromhex("01 03 04")
         assert append_crc(frame[:-2]) == frame
         assert struct.unpack(">f", frame[3:7])[0] == pytest.approx(expected, abs=0.01)
+
+
+def test_500c_encoding_overrides_global_float_word_order(monkeypatch):
+    monkeypatch.setattr(config, "METER_MODEL", "inepro_pro2")
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_abcd")
+    monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "exact")
+    monkeypatch.setattr(register_map, "get_float_word_order", lambda: "cdab")
+    monkeypatch.setattr(register_map, "get_power_offset_override", lambda: None)
+    monkeypatch.setattr(register_map, "get_test_mode", lambda: True)
+
+    from test_mode import reset_test_sequence
+    reset_test_sequence()
+    for _ in range(6):
+        regs = register_map.get_register_map()
+    assert regs[0x500C] == 0x4200
+    assert regs[0x500D] == 0x0000
+
+
+def test_500c_float32_cdab_is_explicit(monkeypatch):
+    monkeypatch.setattr(config, "METER_MODEL", "inepro_pro2")
+    monkeypatch.setattr(config, "MODBUS_INEPRO_500C_ENCODING", "float32_cdab")
+    monkeypatch.setattr(register_map, "get_register_alias_mode", lambda: "exact")
+    monkeypatch.setattr(register_map, "get_float_word_order", lambda: "abcd")
+    monkeypatch.setattr(register_map, "get_power_offset_override", lambda: None)
+    monkeypatch.setattr(register_map, "get_test_mode", lambda: True)
+
+    from test_mode import reset_test_sequence
+    reset_test_sequence()
+    for _ in range(6):
+        regs = register_map.get_register_map()
+    assert regs[0x500C] == 0x0000
+    assert regs[0x500D] == 0x4200
