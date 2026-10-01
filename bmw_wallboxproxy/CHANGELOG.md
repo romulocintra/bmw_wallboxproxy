@@ -1,3 +1,10 @@
+## 0.2.39
+
+- Add regression coverage from the supplied 2026-09-16 BMW Wallbox PRO2 raw TCP capture.
+- Verify the recurring `0x500C` two-register L1-current request and exact 9-byte RTU response shape.
+- Confirm captured current payloads use IEEE-754 FLOAT32 ABCD encoding, with observed values around 5.53–6.41 A.
+- Keep `float32_abcd` as the default PRO2 current encoding.
+
 ## 0.2.37
 
 - Fix the PRO2 register-map default combination code to `0x0003`, matching the L1-only reference profile.
