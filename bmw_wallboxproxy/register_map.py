@@ -128,13 +128,15 @@ def _apply_inepro_current_encoding(regs: Dict[int, int], values: dict) -> Dict[i
     # float32 values in 0x500C/0x500E/0x5010. Keep the legacy encodings as an
     # opt-in compatibility mode for installations that explicitly relied on it.
     mode = config.MODBUS_INEPRO_500C_ENCODING
-    if mode == "float32_abcd":
-        return regs
     result = dict(regs)
     current_addresses = ((0x500C, "i1"), (0x500E, "i2"), (0x5010, "i3"))
 
     for addr, name in current_addresses:
         value = float(values.get(name, 0.0))
+        if mode in ("float32_abcd", "float32_cdab"):
+            hi, lo = float_to_words(to_float32_safe(value), "abcd" if mode == "float32_abcd" else "cdab")
+            result[addr], result[addr + 1] = hi, lo
+            continue
         if mode in ("int32_ma_cdab", "int32_ma_abcd"):
             raw = max(-0x80000000, min(int(round(value * 1000.0)), 0x7FFFFFFF)) & 0xFFFFFFFF
             abcd = raw.to_bytes(4, "big")
